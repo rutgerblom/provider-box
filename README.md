@@ -44,8 +44,6 @@ templates/
   chrony.conf.tpl
   docker-compose.keycloak.yml.tpl
   docker-compose.s3.yml.tpl
-
-legacy/
 ```
 
 ## Quick Start
