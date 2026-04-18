@@ -56,7 +56,7 @@ issue_keycloak_certificates() {
       --root /home/step/certs/root_ca.crt || \
       fail "Failed to issue a Keycloak certificate from step-ca."
 
-  cat "${cert_dir}/keycloak-leaf.crt" "${CA_DATA_DIR}/certs/intermediate_ca.crt" > "${cert_dir}/keycloak.crt" || \
+  cat "${cert_dir}/keycloak-leaf.crt" "${CA_DATA_DIR}/certs/intermediate_ca.crt" "${CA_DATA_DIR}/certs/root_ca.crt" > "${cert_dir}/keycloak.crt" || \
     fail "Failed to build the Keycloak certificate chain."
 
   cat "${CA_DATA_DIR}/certs/intermediate_ca.crt" "${CA_DATA_DIR}/certs/root_ca.crt" > "${cert_dir}/keycloak-ca-chain.pem" || \
