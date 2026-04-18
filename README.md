@@ -20,7 +20,7 @@ The repository is intentionally simple: copy the example configuration, update v
 
 ## What It Assumes
 
-- Ubuntu or Debian-based host
+- Ubuntu or Debian-based host. Tested on Debian GNU/Linux 13 (trixie)
 - Root or `sudo` access
 - Static IP already configured
 - Access to Ubuntu/Debian package repositories
@@ -121,6 +121,7 @@ Keycloak-specific validation only runs for `--keycloak` and `--all`. S3-specific
 - Serves the configured search domain as a static local zone
 - Generates both forward and reverse records from `config/unbound.records`
 - Uses the configured upstream forwarder for external lookups
+- The example configuration allows DNS queries from all RFC1918 ranges: `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`
 
 Record format:
 
@@ -138,6 +139,7 @@ pod-240-vc01.sddc.lab 10.203.240.10
 
 - Uses configured upstream NTP servers
 - Allows NTP service for the configured internal networks
+- The example configuration allows all RFC1918 ranges: `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`
 
 ### Keycloak
 

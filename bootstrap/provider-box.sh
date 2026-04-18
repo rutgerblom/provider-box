@@ -214,7 +214,7 @@ validate_records_file() {
 
 require_env_vars() {
   local var
-  for var in HOST_IP SEARCH_DOMAIN DNS_FQDN KEYCLOAK_FQDN ALLOW_NET_1 ALLOW_NET_2 UNBOUND_FORWARDER CHRONY_SERVER_1 CHRONY_SERVER_2 CHRONY_SERVER_3 WORKDIR KEYCLOAK_DIR; do
+  for var in HOST_IP SEARCH_DOMAIN DNS_FQDN KEYCLOAK_FQDN ALLOW_NET_1 ALLOW_NET_2 ALLOW_NET_3 UNBOUND_FORWARDER CHRONY_SERVER_1 CHRONY_SERVER_2 CHRONY_SERVER_3 WORKDIR KEYCLOAK_DIR; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
@@ -224,6 +224,7 @@ require_env_vars() {
   validate_var_fqdn "${KEYCLOAK_FQDN}"
   validate_var_cidr "${ALLOW_NET_1}"
   validate_var_cidr "${ALLOW_NET_2}"
+  validate_var_cidr "${ALLOW_NET_3}"
   validate_var_ipv4 "${UNBOUND_FORWARDER}"
   validate_var_fqdn "${CHRONY_SERVER_1}"
   validate_var_fqdn "${CHRONY_SERVER_2}"
