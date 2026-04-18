@@ -8,6 +8,8 @@ Provider Box is a small Ubuntu/Debian bootstrap project for standing up shared i
 
 The repository is intentionally simple: copy the example configuration, update values for your environment, and run the bootstrap script for the services you want.
 
+`bootstrap/provider-box.sh` remains the entrypoint and loads service-specific modules from `bootstrap/dns.sh`, `bootstrap/ntp.sh`, and `bootstrap/keycloak.sh`.
+
 ## What This Repository Is
 
 - A reusable shell-based starter for a "provider box" or shared-services VM
@@ -26,6 +28,9 @@ The repository is intentionally simple: copy the example configuration, update v
 
 ```text
 bootstrap/
+  dns.sh
+  keycloak.sh
+  ntp.sh
   provider-box.sh
 
 config/
