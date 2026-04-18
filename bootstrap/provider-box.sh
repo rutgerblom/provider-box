@@ -80,7 +80,8 @@ install_pkg() {
 
 common_pkgs() {
   apt_update_once
-  install_pkg ca-certificates curl openssl dnsutils ufw gettext-base
+  install_pkg ca-certificates curl openssl bind9-dnsutils ufw gettext-base
+  require_command dig
 }
 
 unbound_pkgs() {
