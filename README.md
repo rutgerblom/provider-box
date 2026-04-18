@@ -178,17 +178,10 @@ pod-240-vc01.sddc.lab 10.203.240.10
 - Intended as a lightweight private CA for lab, homelab, and VCF companion use
 - `CA_FQDN` is generated automatically from `config/provider-box.env`
 - This CA service does not yet replace the existing Keycloak certificate generation flow
-- Before first start, initialize step-ca manually in `CA_DATA_DIR` using the official Smallstep image and `step ca init`, then rerun `--ca`
-- Use `CA_NAME` as the CA name and `CA_FQDN` as the CA DNS name during the manual initialization flow
-
-Example initialization flow:
-
-```bash
-sudo docker run --rm -it \
-  -v /opt/step-ca:/home/step \
-  smallstep/step-ca:latest \
-  step ca init
-```
+- step-ca auto-initializes on first start using the documented Docker init variables
+- Create the password file referenced by `CA_PASSWORD_FILE` before running `--ca`
+- The init variables are only used on the first run, when `CA_DATA_DIR` does not already contain an initialized step-ca state
+- Use `CA_NAME`, `CA_FQDN`, `CA_PROVISIONER_NAME`, and `CA_ENABLE_ACME` to control the initial bootstrap configuration
 
 ### Keycloak
 
