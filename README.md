@@ -79,7 +79,7 @@ sudo bash bootstrap/provider-box.sh --all
 
 ## Development Safeguards (Optional)
 
-This repository includes local `pre-commit` hooks to catch small hygiene issues and help prevent committing secrets to a public repository.
+This repository can optionally be used with local `pre-commit` hooks to catch small hygiene issues and help prevent committing secrets to a public repository.
 
 Install `pre-commit` locally:
 
