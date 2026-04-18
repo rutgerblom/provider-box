@@ -15,9 +15,9 @@ The repository is intentionally simple: copy the example configuration, update v
 
 ## VCF Lab Companion
 
-Provider Box is a natural companion for VMware Cloud Foundation (VCF) lab environments.
+Provider Box is a natural companion for VMware Cloud Foundation (VCF) lab environments, particularly VCF 9 deployments.
 
-VCF deployments depend on a set of external infrastructure services that are not provided by the platform itself, such as DNS, NTP, identity providers, and certificate authorities. These services must be available and correctly configured before deployment and are critical for successful bring-up and ongoing operation.
+VCF deployments depend on a set of external infrastructure services that are not provided by the platform itself, such as DNS, NTP, and identity providers. DNS and NTP must be available and correctly configured before deployment and are critical for successful bring-up. Additional services such as identity providers, logging, and storage are typically integrated after deployment to support ongoing operation.
 
 Provider Box provides a lightweight way to run these supporting services on a single host, making it easier to build and operate VCF lab and PoC environments without relying on external enterprise infrastructure.
 
