@@ -9,12 +9,13 @@ It is opinionated for lab and homelab environments and includes templates for:
 - rsyslog for centralized syslog collection
 - step-ca for a lightweight private certificate authority
 - Keycloak for identity
+- NetBox for IPAM, DCIM, and infrastructure source-of-truth
 - SeaweedFS for S3-compatible object storage
 - SFTPGo for SFTP file transfer
 
 The repository is intentionally simple: copy the example configuration, update values for your environment, and execute the bootstrap script for the services you need.
 
-`bootstrap/provider-box.sh` is the entrypoint. It loads service-specific modules from `bootstrap/dns.sh`, `bootstrap/ntp.sh`, `bootstrap/rsyslog.sh`, `bootstrap/ca.sh`, `bootstrap/keycloak.sh`, `bootstrap/s3.sh`, and `bootstrap/sftp.sh`.
+`bootstrap/provider-box.sh` is the entrypoint. It loads service-specific modules from `bootstrap/dns.sh`, `bootstrap/ntp.sh`, `bootstrap/rsyslog.sh`, `bootstrap/ca.sh`, `bootstrap/keycloak.sh`, `bootstrap/netbox.sh`, `bootstrap/s3.sh`, and `bootstrap/sftp.sh`.
 
 ---
 
@@ -73,7 +74,7 @@ over:
 - Network connectivity from the VCF environment to this host
 - Access to Ubuntu/Debian package repositories
 - `bind9-dnsutils` available for DNS tooling
-- Docker packages available when deploying step-ca, Keycloak, SeaweedFS, or SFTPGo
+- Docker packages available when deploying step-ca, Keycloak, NetBox, SeaweedFS, or SFTPGo
 
 Provider Box uses Docker Compose via `docker compose`. On Debian GNU/Linux 13, the `docker-compose` package provides this functionality.
 
@@ -86,6 +87,7 @@ bootstrap/
   ca.sh
   dns.sh
   keycloak.sh
+  netbox.sh
   ntp.sh
   provider-box.sh
   rsyslog.sh
@@ -102,8 +104,10 @@ templates/
   rsyslog.conf.tpl
   docker-compose.step-ca.yml.tpl
   docker-compose.keycloak.yml.tpl
+  docker-compose.netbox.yml.tpl
   docker-compose.s3.yml.tpl
   docker-compose.sftpgo.yml.tpl
+  netbox-nginx.conf.tpl
 ```
 
 ---
@@ -132,6 +136,7 @@ sudo bash bootstrap/provider-box.sh --ntp
 sudo bash bootstrap/provider-box.sh --rsyslog
 sudo bash bootstrap/provider-box.sh --ca
 sudo bash bootstrap/provider-box.sh --keycloak
+sudo bash bootstrap/provider-box.sh --netbox
 sudo bash bootstrap/provider-box.sh --s3
 sudo bash bootstrap/provider-box.sh --sftp
 sudo bash bootstrap/provider-box.sh --all
@@ -149,6 +154,7 @@ sudo bash bootstrap/provider-box.sh --all
 - rsyslog
 - step-ca
 - Keycloak
+- NetBox
 
 **Optional depending on use case:**
 - SeaweedFS (S3)
@@ -262,6 +268,22 @@ Key files:
 - `keycloak.key` (private key)
 - `keycloak-ca-chain.pem` (for VCF OIDC trust)
 - `keycloak-ca-roots.pem` (roots-only bundle)
+
+---
+
+### NetBox
+
+- Runs via Docker Compose with NetBox, PostgreSQL, Redis, and a small HTTPS terminator
+- Requires step-ca to be initialized first
+- Intended as an IPAM, DCIM, and infrastructure source-of-truth service
+- Exposed at `https://<NETBOX_FQDN>:<NETBOX_PORT>`
+- Persists application media under `NETBOX_MEDIA_DIR`
+- Persists PostgreSQL data under `NETBOX_POSTGRES_DATA_DIR`
+- Persists Redis data under `NETBOX_REDIS_DATA_DIR`
+- Uses a step-ca-issued certificate stored under `${NETBOX_DIR}/certs`
+- Bootstraps the initial superuser from `NETBOX_SUPERUSER_*` variables on first start
+- Seeds Provider Box service endpoints into NetBox via the NetBox API after startup
+- Imports DNS records from `config/unbound.records` into NetBox via the API as IP address entries with DNS names
 
 ---
 

@@ -18,6 +18,7 @@ Usage:
   sudo bash bootstrap/provider-box.sh --rsyslog
   sudo bash bootstrap/provider-box.sh --ca
   sudo bash bootstrap/provider-box.sh --keycloak
+  sudo bash bootstrap/provider-box.sh --netbox
   sudo bash bootstrap/provider-box.sh --s3
   sudo bash bootstrap/provider-box.sh --sftp
   sudo bash bootstrap/provider-box.sh --all
@@ -143,6 +144,7 @@ build_provider_box_dns_block() {
   PROVIDER_BOX_DNS_BLOCK="local-data: \"${DNS_FQDN} A ${HOST_IP}\"
 local-data: \"${CA_FQDN} A ${HOST_IP}\"
 local-data: \"${KEYCLOAK_FQDN} A ${HOST_IP}\"
+local-data: \"${NETBOX_FQDN} A ${HOST_IP}\"
 local-data: \"${S3_FQDN} A ${HOST_IP}\"
 local-data: \"${SFTP_FQDN} A ${HOST_IP}\"
 local-data: \"${SYSLOG_FQDN} A ${HOST_IP}\"
@@ -275,6 +277,10 @@ require_module_file "${BOOTSTRAP_DIR}/keycloak.sh"
 # shellcheck disable=SC1090
 source "${BOOTSTRAP_DIR}/keycloak.sh"
 
+require_module_file "${BOOTSTRAP_DIR}/netbox.sh"
+# shellcheck disable=SC1090
+source "${BOOTSTRAP_DIR}/netbox.sh"
+
 require_module_file "${BOOTSTRAP_DIR}/s3.sh"
 # shellcheck disable=SC1090
 source "${BOOTSTRAP_DIR}/s3.sh"
@@ -327,6 +333,12 @@ case "$1" in
     require_env_vars
     do_keycloak
     ;;
+  --netbox)
+    require_env_file
+    load_env
+    require_env_vars
+    do_netbox
+    ;;
   --s3)
     require_env_file
     load_env
@@ -349,6 +361,7 @@ case "$1" in
     do_rsyslog
     do_ca
     do_keycloak
+    do_netbox
     do_s3
     do_sftp
     ;;

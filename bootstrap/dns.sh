@@ -11,12 +11,13 @@ cleanup_legacy_unbound_config() {
 
 require_unbound_vars() {
   local var
-  for var in CA_FQDN KEYCLOAK_FQDN S3_FQDN SFTP_FQDN SYSLOG_FQDN; do
+  for var in CA_FQDN KEYCLOAK_FQDN NETBOX_FQDN S3_FQDN SFTP_FQDN SYSLOG_FQDN; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
   validate_var_fqdn "${CA_FQDN}"
   validate_var_fqdn "${KEYCLOAK_FQDN}"
+  validate_var_fqdn "${NETBOX_FQDN}"
   validate_var_fqdn "${S3_FQDN}"
   validate_var_fqdn "${SFTP_FQDN}"
   validate_var_fqdn "${SYSLOG_FQDN}"

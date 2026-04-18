@@ -1,0 +1,396 @@
+#!/usr/bin/env bash
+
+require_netbox_ca_vars() {
+  local var
+  for var in CA_FQDN CA_PORT CA_DATA_DIR CA_PROVISIONER_NAME CA_PASSWORD_FILE; do
+    [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
+  done
+
+  validate_var_fqdn "${CA_FQDN}"
+  validate_var_port "${CA_PORT}"
+  validate_var_path "${CA_DATA_DIR}"
+  validate_var_path "${CA_PASSWORD_FILE}"
+  [[ "${CA_PASSWORD_FILE}" == "${CA_DATA_DIR}"/* ]] || \
+    fail "CA_PASSWORD_FILE must be located under CA_DATA_DIR so the step-ca container can read it"
+}
+
+validate_netbox_secret_key() {
+  [[ "${NETBOX_SECRET_KEY}" != CHANGE_ME* ]] || \
+    fail "Replace NETBOX_SECRET_KEY before continuing"
+  (( ${#NETBOX_SECRET_KEY} >= 50 )) || \
+    fail "NETBOX_SECRET_KEY must be at least 50 characters long"
+}
+
+validate_netbox_image() {
+  [[ "${NETBOX_IMAGE}" == *:* ]] || fail "NETBOX_IMAGE must include an explicit image tag"
+  [[ "${NETBOX_IMAGE}" != *:latest ]] || fail "NETBOX_IMAGE must not use the latest tag"
+}
+
+validate_netbox_email() {
+  [[ "${NETBOX_SUPERUSER_EMAIL}" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]] || \
+    fail "Invalid NETBOX_SUPERUSER_EMAIL value: ${NETBOX_SUPERUSER_EMAIL}"
+}
+
+build_netbox_dns_seed_block() {
+  local line fqdn ip
+  NETBOX_DNS_RECORDS="${DNS_FQDN}|${HOST_IP}|provider-box
+${CA_FQDN}|${HOST_IP}|provider-box
+${KEYCLOAK_FQDN}|${HOST_IP}|provider-box
+${NETBOX_FQDN}|${HOST_IP}|provider-box
+${S3_FQDN}|${HOST_IP}|provider-box
+${SFTP_FQDN}|${HOST_IP}|provider-box
+${SYSLOG_FQDN}|${HOST_IP}|provider-box
+"
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    [[ "$line" = \#* ]] && continue
+    fqdn="${line% *}"
+    ip="${line##* }"
+    NETBOX_DNS_RECORDS="${NETBOX_DNS_RECORDS}${fqdn}|${ip}|unbound.records
+"
+  done < "${RECORDS_FILE}"
+
+  export NETBOX_DNS_RECORDS
+}
+
+build_netbox_service_seed_block() {
+  NETBOX_PROVIDER_SERVICES="dns-tcp|${DNS_FQDN}|tcp|53
+dns-udp|${DNS_FQDN}|udp|53
+ntp|${DNS_FQDN}|udp|123
+syslog-tcp|${SYSLOG_FQDN}|tcp|${SYSLOG_PORT}
+syslog-udp|${SYSLOG_FQDN}|udp|${SYSLOG_PORT}
+step-ca|${CA_FQDN}|tcp|${CA_PORT}
+keycloak|${KEYCLOAK_FQDN}|tcp|8443
+netbox|${NETBOX_FQDN}|tcp|${NETBOX_PORT}
+s3|${S3_FQDN}|tcp|${S3_PORT}
+sftp|${SFTP_FQDN}|tcp|${SFTP_PORT}
+sftp-admin|${SFTP_FQDN}|tcp|${SFTP_ADMIN_PORT}
+"
+
+  export NETBOX_PROVIDER_SERVICES
+}
+
+require_netbox_vars() {
+  local var
+  for var in NETBOX_FQDN NETBOX_PORT NETBOX_DIR NETBOX_MEDIA_DIR NETBOX_POSTGRES_DATA_DIR NETBOX_REDIS_DATA_DIR NETBOX_IMAGE NETBOX_POSTGRES_DB NETBOX_POSTGRES_USER NETBOX_POSTGRES_PASSWORD NETBOX_REDIS_PASSWORD NETBOX_SECRET_KEY NETBOX_ALLOWED_HOSTS NETBOX_SUPERUSER_NAME NETBOX_SUPERUSER_EMAIL NETBOX_SUPERUSER_PASSWORD; do
+    [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
+  done
+
+  validate_var_fqdn "${NETBOX_FQDN}"
+  validate_var_port "${NETBOX_PORT}"
+  validate_var_path "${NETBOX_DIR}"
+  validate_var_path "${NETBOX_MEDIA_DIR}"
+  validate_var_path "${NETBOX_POSTGRES_DATA_DIR}"
+  validate_var_path "${NETBOX_REDIS_DATA_DIR}"
+  validate_var_not_placeholder "${NETBOX_POSTGRES_PASSWORD}"
+  validate_var_not_placeholder "${NETBOX_REDIS_PASSWORD}"
+  validate_var_not_placeholder "${NETBOX_SUPERUSER_PASSWORD}"
+  validate_netbox_secret_key
+  validate_netbox_image
+  validate_netbox_email
+  [[ "${NETBOX_ALLOWED_HOSTS}" == *"${NETBOX_FQDN}"* ]] || \
+    fail "NETBOX_ALLOWED_HOSTS must include ${NETBOX_FQDN}"
+}
+
+require_ca_ready_for_netbox() {
+  [[ -f "${CA_DATA_DIR}/config/ca.json" ]] || \
+    fail "step-ca is not initialized. Run --ca first."
+  [[ -f "${CA_DATA_DIR}/certs/root_ca.crt" ]] || \
+    fail "Missing step-ca root certificate in ${CA_DATA_DIR}/certs/root_ca.crt. Run --ca first."
+  [[ -f "${CA_DATA_DIR}/certs/intermediate_ca.crt" ]] || \
+    fail "Missing step-ca intermediate certificate in ${CA_DATA_DIR}/certs/intermediate_ca.crt. Run --ca first."
+  [[ -f "${CA_PASSWORD_FILE}" ]] || \
+    fail "Missing CA password file: ${CA_PASSWORD_FILE}. Run --ca first after creating it."
+
+  curl --silent --show-error --fail \
+    --cacert "${CA_DATA_DIR}/certs/root_ca.crt" \
+    --resolve "${CA_FQDN}:${CA_PORT}:127.0.0.1" \
+    "https://${CA_FQDN}:${CA_PORT}/roots.pem" >/dev/null || \
+    fail "step-ca is not reachable on https://${CA_FQDN}:${CA_PORT}. Run --ca first and ensure the CA is healthy."
+}
+
+issue_netbox_certificates() {
+  local cert_dir="${NETBOX_DIR}/certs"
+  local password_file_in_container="/home/step/${CA_PASSWORD_FILE#${CA_DATA_DIR}/}"
+
+  install -d -m 0755 "${cert_dir}"
+  rm -f \
+    "${cert_dir}/netbox.crt" \
+    "${cert_dir}/netbox.key" \
+    "${cert_dir}/netbox-ca-chain.pem" \
+    "${cert_dir}/netbox-ca-roots.pem" \
+    "${cert_dir}/netbox-leaf.crt"
+
+  docker run --rm --network host \
+    -v "${CA_DATA_DIR}:/home/step" \
+    -v "${cert_dir}:/out" \
+    smallstep/step-ca:latest \
+    step ca certificate "${NETBOX_FQDN}" /out/netbox-leaf.crt /out/netbox.key \
+      --san "${NETBOX_FQDN}" \
+      --issuer "${CA_PROVISIONER_NAME}" \
+      --provisioner-password-file "${password_file_in_container}" \
+      --ca-url "https://${CA_FQDN}:${CA_PORT}" \
+      --root /home/step/certs/root_ca.crt || \
+      fail "Failed to issue a NetBox certificate from step-ca."
+
+  mv "${cert_dir}/netbox-leaf.crt" "${cert_dir}/netbox.crt" || \
+    fail "Failed to store the NetBox certificate chain."
+
+  cat "${CA_DATA_DIR}/certs/intermediate_ca.crt" "${CA_DATA_DIR}/certs/root_ca.crt" > "${cert_dir}/netbox-ca-chain.pem" || \
+    fail "Failed to build the NetBox CA chain bundle."
+
+  docker run --rm --network host \
+    -v "${CA_DATA_DIR}:/home/step" \
+    -v "${cert_dir}:/out" \
+    smallstep/step-ca:latest \
+    step ca roots /out/netbox-ca-roots.pem \
+      --ca-url "https://${CA_FQDN}:${CA_PORT}" \
+      --root /home/step/certs/root_ca.crt || \
+      fail "Failed to fetch the step-ca root bundle for NetBox."
+
+  chmod 0644 "${cert_dir}/netbox.crt" "${cert_dir}/netbox-ca-chain.pem" "${cert_dir}/netbox-ca-roots.pem"
+  chmod 0600 "${cert_dir}/netbox.key"
+}
+
+render_netbox_stack() {
+  install -d -m 0755 "${WORKDIR}/netbox" "${NETBOX_DIR}" "${NETBOX_MEDIA_DIR}" "${NETBOX_POSTGRES_DATA_DIR}" "${NETBOX_REDIS_DATA_DIR}"
+  build_netbox_dns_seed_block
+  build_netbox_service_seed_block
+  render_template "${TEMPLATE_DIR}/docker-compose.netbox.yml.tpl" "${WORKDIR}/netbox/docker-compose.yml"
+  DOLLAR='$'
+  export DOLLAR
+  render_template "${TEMPLATE_DIR}/netbox-nginx.conf.tpl" "${WORKDIR}/netbox/nginx.conf"
+}
+
+verify_netbox_stack() {
+  local service
+  for service in postgres redis netbox netbox-https; do
+    docker compose ps --services --status running | grep -qx "${service}" || \
+      fail "NetBox service '${service}' is not running. Check 'docker compose ps' and 'docker compose logs'."
+  done
+}
+
+wait_for_netbox_https() {
+  local attempt
+  for attempt in $(seq 1 30); do
+    if curl --silent --show-error --fail \
+      --cacert "${CA_DATA_DIR}/certs/root_ca.crt" \
+      --resolve "${NETBOX_FQDN}:${NETBOX_PORT}:127.0.0.1" \
+      "https://${NETBOX_FQDN}:${NETBOX_PORT}/login/" >/dev/null; then
+      return 0
+    fi
+    sleep 2
+  done
+
+  fail "NetBox did not become ready at https://${NETBOX_FQDN}:${NETBOX_PORT}/login/. Check 'docker compose logs'."
+}
+
+netbox_api_request() {
+  local method="$1"
+  local endpoint="$2"
+  local data="${3:-}"
+  local auth_header="${4:-}"
+  local curl_args=(
+    --silent
+    --show-error
+    --fail
+    --cacert "${CA_DATA_DIR}/certs/root_ca.crt"
+    --resolve "${NETBOX_FQDN}:${NETBOX_PORT}:127.0.0.1"
+    -H "Accept: application/json"
+    -H "Content-Type: application/json"
+    -X "${method}"
+  )
+
+  if [[ -n "${auth_header}" ]]; then
+    curl_args+=(-H "${auth_header}")
+  fi
+
+  if [[ -n "${data}" ]]; then
+    curl_args+=(--data "${data}")
+  fi
+
+  curl "${curl_args[@]}" "https://${NETBOX_FQDN}:${NETBOX_PORT}${endpoint}"
+}
+
+json_first_id() {
+  tr -d '\n' | grep -o '"id":[0-9]*' | head -n1 | cut -d: -f2
+}
+
+json_string_field() {
+  local field="$1"
+  sed -n "s/.*\"${field}\":\"\\([^\"]*\\)\".*/\\1/p" | head -n1
+}
+
+netbox_api_token() {
+  local response token
+  response="$(netbox_api_request POST /api/users/tokens/provision/ "{\"username\":\"${NETBOX_SUPERUSER_NAME}\",\"password\":\"${NETBOX_SUPERUSER_PASSWORD}\"}")" || \
+    fail "Failed to provision a NetBox API token for ${NETBOX_SUPERUSER_NAME}."
+  token="$(printf '%s' "${response}" | json_string_field key)"
+  [[ -n "${token}" ]] || fail "Failed to extract the NetBox API token from the provision response."
+  printf '%s' "${token}"
+}
+
+netbox_get_object_id() {
+  local endpoint="$1"
+  local query="$2"
+  netbox_api_request GET "${endpoint}?${query}&brief=1" "" "Authorization: Token ${NETBOX_API_TOKEN}" | json_first_id
+}
+
+netbox_create_object() {
+  local endpoint="$1"
+  local payload="$2"
+  netbox_api_request POST "${endpoint}" "${payload}" "Authorization: Token ${NETBOX_API_TOKEN}" | json_first_id
+}
+
+netbox_patch_object() {
+  local endpoint="$1"
+  local object_id="$2"
+  local payload="$3"
+  netbox_api_request PATCH "${endpoint}${object_id}/" "${payload}" "Authorization: Token ${NETBOX_API_TOKEN}" >/dev/null
+}
+
+ensure_netbox_site() {
+  local site_id
+  site_id="$(netbox_get_object_id /api/dcim/sites/ "name=Provider%20Box")"
+  if [[ -z "${site_id}" ]]; then
+    site_id="$(netbox_create_object /api/dcim/sites/ '{"name":"Provider Box","slug":"provider-box","status":"active"}')"
+  fi
+  [[ -n "${site_id}" ]] || fail "Failed to create or find the Provider Box site in NetBox."
+  NETBOX_SITE_ID="${site_id}"
+}
+
+ensure_netbox_manufacturer() {
+  local manufacturer_id
+  manufacturer_id="$(netbox_get_object_id /api/dcim/manufacturers/ "name=Provider%20Box")"
+  if [[ -z "${manufacturer_id}" ]]; then
+    manufacturer_id="$(netbox_create_object /api/dcim/manufacturers/ '{"name":"Provider Box","slug":"provider-box"}')"
+  fi
+  [[ -n "${manufacturer_id}" ]] || fail "Failed to create or find the Provider Box manufacturer in NetBox."
+  NETBOX_MANUFACTURER_ID="${manufacturer_id}"
+}
+
+ensure_netbox_device_type() {
+  local device_type_id payload
+  device_type_id="$(netbox_get_object_id /api/dcim/device-types/ "model=Provider%20Box")"
+  if [[ -z "${device_type_id}" ]]; then
+    payload="$(printf '{"manufacturer":%s,"model":"Provider Box","slug":"provider-box"}' "${NETBOX_MANUFACTURER_ID}")"
+    device_type_id="$(netbox_create_object /api/dcim/device-types/ "${payload}")"
+  fi
+  [[ -n "${device_type_id}" ]] || fail "Failed to create or find the Provider Box device type in NetBox."
+  NETBOX_DEVICE_TYPE_ID="${device_type_id}"
+}
+
+ensure_netbox_device_role() {
+  local role_id
+  role_id="$(netbox_get_object_id /api/dcim/device-roles/ "name=Provider%20Services")"
+  if [[ -z "${role_id}" ]]; then
+    role_id="$(netbox_create_object /api/dcim/device-roles/ '{"name":"Provider Services","slug":"provider-services","color":"607d8b"}')"
+  fi
+  [[ -n "${role_id}" ]] || fail "Failed to create or find the Provider Services device role in NetBox."
+  NETBOX_DEVICE_ROLE_ID="${role_id}"
+}
+
+ensure_netbox_device() {
+  local device_id create_payload update_payload
+  device_id="$(netbox_get_object_id /api/dcim/devices/ "name=provider-box")"
+  create_payload="$(printf '{"name":"provider-box","site":%s,"device_type":%s,"role":%s,"status":"active"}' "${NETBOX_SITE_ID}" "${NETBOX_DEVICE_TYPE_ID}" "${NETBOX_DEVICE_ROLE_ID}")"
+  update_payload="$(printf '{"site":%s,"device_type":%s,"role":%s,"status":"active"}' "${NETBOX_SITE_ID}" "${NETBOX_DEVICE_TYPE_ID}" "${NETBOX_DEVICE_ROLE_ID}")"
+
+  if [[ -z "${device_id}" ]]; then
+    device_id="$(netbox_create_object /api/dcim/devices/ "${create_payload}")"
+  else
+    netbox_patch_object /api/dcim/devices/ "${device_id}" "${update_payload}"
+  fi
+
+  [[ -n "${device_id}" ]] || fail "Failed to create or find the Provider Box device in NetBox."
+  NETBOX_DEVICE_ID="${device_id}"
+}
+
+ensure_netbox_service() {
+  local name="$1"
+  local fqdn="$2"
+  local protocol="$3"
+  local port="$4"
+  local service_id payload
+
+  service_id="$(netbox_get_object_id /api/ipam/services/ "device_id=${NETBOX_DEVICE_ID}&name=${name}")"
+  payload="$(printf '{"device":%s,"name":"%s","protocol":"%s","ports":[%s],"description":"%s"}' "${NETBOX_DEVICE_ID}" "${name}" "${protocol}" "${port}" "${fqdn}")"
+
+  if [[ -z "${service_id}" ]]; then
+    service_id="$(netbox_create_object /api/ipam/services/ "${payload}")"
+  else
+    netbox_patch_object /api/ipam/services/ "${service_id}" "${payload}"
+  fi
+}
+
+ensure_netbox_ip_address() {
+  local fqdn="$1"
+  local ip="$2"
+  local source="$3"
+  local address="${ip}/32"
+  local ip_id payload
+
+  ip_id="$(netbox_get_object_id /api/ipam/ip-addresses/ "address=${address}&dns_name=${fqdn}")"
+  payload="$(printf '{"address":"%s","dns_name":"%s","status":"active","description":"Imported from %s"}' "${address}" "${fqdn}" "${source}")"
+
+  if [[ -z "${ip_id}" ]]; then
+    netbox_create_object /api/ipam/ip-addresses/ "${payload}" >/dev/null
+  else
+    netbox_patch_object /api/ipam/ip-addresses/ "${ip_id}" "${payload}"
+  fi
+}
+
+seed_netbox_via_api() {
+  local line name fqdn protocol port record_fqdn record_ip record_source
+  NETBOX_API_TOKEN="$(netbox_api_token)"
+
+  ensure_netbox_site
+  ensure_netbox_manufacturer
+  ensure_netbox_device_type
+  ensure_netbox_device_role
+  ensure_netbox_device
+
+  while IFS='|' read -r name fqdn protocol port; do
+    [[ -n "${name}" ]] || continue
+    ensure_netbox_service "${name}" "${fqdn}" "${protocol}" "${port}"
+  done <<< "${NETBOX_PROVIDER_SERVICES}"
+
+  while IFS='|' read -r record_fqdn record_ip record_source; do
+    [[ -n "${record_fqdn}" ]] || continue
+    ensure_netbox_ip_address "${record_fqdn}" "${record_ip}" "${record_source}"
+  done <<< "${NETBOX_DNS_RECORDS}"
+}
+
+print_netbox_summary() {
+  cat <<SUMMARY
+NetBox deployed
+URL: https://${NETBOX_FQDN}:${NETBOX_PORT}
+NetBox media: ${NETBOX_MEDIA_DIR}
+PostgreSQL data: ${NETBOX_POSTGRES_DATA_DIR}
+Redis data: ${NETBOX_REDIS_DATA_DIR}
+Initial superuser: ${NETBOX_SUPERUSER_NAME} (${NETBOX_SUPERUSER_EMAIL})
+SUMMARY
+}
+
+do_netbox() {
+  require_netbox_vars
+  require_netbox_ca_vars
+  require_records_file
+  validate_records_file
+  common_pkgs
+  docker_pkgs
+  require_ca_ready_for_netbox
+  issue_netbox_certificates
+  render_netbox_stack
+  (
+    cd "${WORKDIR}/netbox"
+    docker compose down || true
+    docker compose up -d
+    verify_netbox_stack
+  )
+  wait_for_netbox_https
+  seed_netbox_via_api
+  ufw allow "${NETBOX_PORT}/tcp" || true
+  print_netbox_summary
+}
