@@ -17,6 +17,7 @@ Usage:
   sudo bash bootstrap/provider-box.sh --ntp
   sudo bash bootstrap/provider-box.sh --keycloak
   sudo bash bootstrap/provider-box.sh --s3
+  sudo bash bootstrap/provider-box.sh --sftp
   sudo bash bootstrap/provider-box.sh --all
 USAGE
 }
@@ -256,6 +257,10 @@ require_module_file "${BOOTSTRAP_DIR}/s3.sh"
 # shellcheck disable=SC1090
 source "${BOOTSTRAP_DIR}/s3.sh"
 
+require_module_file "${BOOTSTRAP_DIR}/sftp.sh"
+# shellcheck disable=SC1090
+source "${BOOTSTRAP_DIR}/sftp.sh"
+
 require_root
 
 [[ $# -eq 1 ]] || { usage; exit 1; }
@@ -286,6 +291,12 @@ case "$1" in
     require_env_vars
     do_s3
     ;;
+  --sftp)
+    require_env_file
+    load_env
+    require_env_vars
+    do_sftp
+    ;;
   --all)
     require_env_file
     load_env
@@ -295,6 +306,7 @@ case "$1" in
     do_ntp
     do_keycloak
     do_s3
+    do_sftp
     ;;
   -h|--help)
     usage

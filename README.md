@@ -6,10 +6,11 @@ Provider Box is a small Ubuntu/Debian bootstrap project for standing up shared i
 - Chrony for internal NTP
 - Keycloak for identity
 - SeaweedFS for S3-compatible object storage
+- SFTPGo for SFTP file transfer
 
 The repository is intentionally simple: copy the example configuration, update values for your environment, and run the bootstrap script for the services you want.
 
-`bootstrap/provider-box.sh` remains the entrypoint and loads service-specific modules from `bootstrap/dns.sh`, `bootstrap/ntp.sh`, `bootstrap/keycloak.sh`, and `bootstrap/s3.sh`.
+`bootstrap/provider-box.sh` remains the entrypoint and loads service-specific modules from `bootstrap/dns.sh`, `bootstrap/ntp.sh`, `bootstrap/keycloak.sh`, `bootstrap/s3.sh`, and `bootstrap/sftp.sh`.
 
 ## What This Repository Is
 
@@ -24,7 +25,7 @@ The repository is intentionally simple: copy the example configuration, update v
 - Static IP already configured
 - Access to Ubuntu/Debian package repositories
 - `bind9-dnsutils` available from the host package manager for DNS tooling
-- Docker packages available from the host package manager when deploying Keycloak or SeaweedFS S3
+- Docker packages available from the host package manager when deploying Keycloak, SeaweedFS S3, or SFTPGo
 
 ## Repository Layout
 
@@ -35,6 +36,7 @@ bootstrap/
   ntp.sh
   provider-box.sh
   s3.sh
+  sftp.sh
 
 config/
   provider-box.env.example
@@ -45,6 +47,7 @@ templates/
   chrony.conf.tpl
   docker-compose.keycloak.yml.tpl
   docker-compose.s3.yml.tpl
+  docker-compose.sftpgo.yml.tpl
 ```
 
 ## Quick Start
@@ -65,6 +68,7 @@ sudo bash bootstrap/provider-box.sh --unbound
 sudo bash bootstrap/provider-box.sh --ntp
 sudo bash bootstrap/provider-box.sh --keycloak
 sudo bash bootstrap/provider-box.sh --s3
+sudo bash bootstrap/provider-box.sh --sftp
 sudo bash bootstrap/provider-box.sh --all
 ```
 
@@ -94,7 +98,7 @@ The configured Gitleaks hook scans for accidentally committed secrets before a c
 
 ## Configuration Model
 
-`config/provider-box.env` defines host, DNS, NTP, certificate, Keycloak, and S3 settings.
+`config/provider-box.env` defines host, DNS, NTP, certificate, Keycloak, S3, and SFTP settings.
 
 The bootstrap script now validates configuration more strictly before making changes:
 
@@ -108,7 +112,7 @@ The bootstrap script now validates configuration more strictly before making cha
 - DNS record entries must follow `<fqdn> <ip>` format
 - Environment variables from `config/provider-box.env` are exported before template rendering so `envsubst` can populate all template values correctly
 
-Keycloak-specific validation only runs for `--keycloak` and `--all`. S3-specific validation only runs for `--s3` and `--all`.
+Keycloak-specific validation only runs for `--keycloak` and `--all`. S3-specific validation only runs for `--s3` and `--all`. SFTP-specific validation only runs for `--sftp` and `--all`.
 
 ## Service Notes
 
@@ -153,6 +157,18 @@ Important output files in `${WORKDIR}`:
 - Exposes the S3-compatible endpoint on `http://<S3_FQDN>:<S3_PORT>`
 - Persists object data under `S3_DATA_DIR`
 - Requires the `S3_FQDN` hostname to be present in `config/unbound.records` if you want it resolvable through the built-in DNS setup
+
+### SFTPGo
+
+- Deploys as a single-node SFTPGo container using Docker Compose
+- Exposes the SFTP endpoint on `sftp://<SFTP_FQDN>:<SFTP_PORT>`
+- Exposes the admin UI on `http://<SFTP_FQDN>:<SFTP_ADMIN_PORT>`
+- Persists service data under `SFTP_DATA_DIR`
+- Persists the container home and generated host keys under `SFTP_HOME_DIR`
+- Requires the `SFTP_FQDN` hostname to be present in `config/unbound.records` if you want it resolvable through the built-in DNS setup
+- Expected SFTP settings in `config/provider-box.env`: `SFTP_FQDN`, `SFTP_PORT`, `SFTP_ADMIN_PORT`, `SFTP_DATA_DIR`, `SFTP_HOME_DIR`
+- After deployment, open the admin UI and create the first admin account there
+- No SFTPGo admin credentials are bootstrapped automatically by Provider Box
 
 ## Failure Handling
 

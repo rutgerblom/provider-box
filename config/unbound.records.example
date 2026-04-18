@@ -24,3 +24,4 @@ pod-240-en2.sddc.lab 10.203.240.58
 auth.sddc.lab 192.168.12.121
 dns.sddc.lab 192.168.12.121
 s3.sddc.lab 192.168.12.121
+sftp.sddc.lab 192.168.12.121
