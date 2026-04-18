@@ -5,6 +5,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${REPO_ROOT}/config/provider-box.env"
 RECORDS_FILE="${REPO_ROOT}/config/unbound.records"
 TEMPLATE_DIR="${REPO_ROOT}/templates"
+BOOTSTRAP_DIR="${REPO_ROOT}/bootstrap"
 APT_UPDATED=0
 
 trap 'echo "Error: command failed on line ${LINENO}. See output above for details." >&2' ERR
@@ -38,6 +39,10 @@ require_records_file() {
 
 require_template_file() {
   [[ -f "$1" ]] || fail "Missing template: $1"
+}
+
+require_module_file() {
+  [[ -f "$1" ]] || fail "Missing bootstrap module: $1"
 }
 
 require_command() {
@@ -192,104 +197,6 @@ validate_records_file() {
   done < "$RECORDS_FILE"
 }
 
-do_unbound() {
-  validate_records_file
-  common_pkgs
-  unbound_pkgs
-  configure_resolv_conf
-  build_dns_record_block
-  render_template "${TEMPLATE_DIR}/unbound.conf.tpl" /etc/unbound/unbound.conf.d/provider-box.conf
-  require_command unbound-checkconf
-  unbound-checkconf
-  systemctl enable unbound
-  systemctl restart unbound
-  ufw allow 53/tcp || true
-  ufw allow 53/udp || true
-}
-
-do_ntp() {
-  common_pkgs
-  ntp_pkgs
-  systemctl disable systemd-timesyncd || true
-  systemctl stop systemd-timesyncd || true
-  render_template "${TEMPLATE_DIR}/chrony.conf.tpl" /etc/chrony/chrony.conf
-  systemctl enable chrony
-  systemctl restart chrony
-  ufw allow 123/udp || true
-}
-
-generate_certs() {
-  mkdir -p "${WORKDIR}" "${KEYCLOAK_DIR}/certs" "${KEYCLOAK_DIR}/data"
-
-  cat > "${WORKDIR}/keycloak-openssl.cnf" <<EOF
-[ req ]
-default_bits       = 2048
-distinguished_name = req_distinguished_name
-req_extensions     = req_ext
-prompt             = no
-
-[ req_distinguished_name ]
-C  = ${CERT_C}
-ST = ${CERT_ST}
-L  = ${CERT_L}
-O  = ${CERT_O}
-OU = ${CERT_OU_IDP}
-CN = ${KEYCLOAK_FQDN}
-
-[ req_ext ]
-subjectAltName = @alt_names
-
-[ alt_names ]
-DNS.1 = ${KEYCLOAK_FQDN}
-IP.1  = ${HOST_IP}
-EOF
-
-  openssl genrsa -out "${WORKDIR}/provider-box-ca.key" 4096
-  openssl req -x509 -new -nodes \
-    -key "${WORKDIR}/provider-box-ca.key" \
-    -sha256 -days 3650 \
-    -out "${WORKDIR}/provider-box-ca.crt" \
-    -subj "/C=${CERT_C}/ST=${CERT_ST}/L=${CERT_L}/O=${CERT_O}/OU=${CERT_OU_CA}/CN=${CERT_CA_CN}"
-
-  openssl genrsa -out "${WORKDIR}/${KEYCLOAK_FQDN}.key" 2048
-  openssl req -new \
-    -key "${WORKDIR}/${KEYCLOAK_FQDN}.key" \
-    -out "${WORKDIR}/${KEYCLOAK_FQDN}.csr" \
-    -config "${WORKDIR}/keycloak-openssl.cnf"
-
-  openssl x509 -req \
-    -in "${WORKDIR}/${KEYCLOAK_FQDN}.csr" \
-    -CA "${WORKDIR}/provider-box-ca.crt" \
-    -CAkey "${WORKDIR}/provider-box-ca.key" \
-    -CAcreateserial \
-    -out "${WORKDIR}/${KEYCLOAK_FQDN}.crt" \
-    -days 825 \
-    -sha256 \
-    -extensions req_ext \
-    -extfile "${WORKDIR}/keycloak-openssl.cnf"
-
-  install -D -m 0644 "${WORKDIR}/${KEYCLOAK_FQDN}.crt" "${KEYCLOAK_DIR}/certs/${KEYCLOAK_FQDN}.crt"
-  install -D -m 0600 "${WORKDIR}/${KEYCLOAK_FQDN}.key" "${KEYCLOAK_DIR}/certs/${KEYCLOAK_FQDN}.key"
-  chown -R 1000:1000 "${KEYCLOAK_DIR}"
-
-  cat "${WORKDIR}/${KEYCLOAK_FQDN}.crt" "${WORKDIR}/provider-box-ca.crt" > "${WORKDIR}/keycloak-chain.crt"
-}
-
-do_keycloak() {
-  require_keycloak_vars
-  common_pkgs
-  keycloak_pkgs
-  generate_certs
-  mkdir -p "${WORKDIR}/keycloak"
-  render_template "${TEMPLATE_DIR}/docker-compose.keycloak.yml.tpl" "${WORKDIR}/keycloak/docker-compose.yml"
-  (
-    cd "${WORKDIR}/keycloak"
-    docker compose down || true
-    docker compose up -d
-  )
-  ufw allow 8443/tcp || true
-}
-
 require_env_vars() {
   local var
   for var in HOST_IP SEARCH_DOMAIN DNS_FQDN KEYCLOAK_FQDN ALLOW_NET_1 ALLOW_NET_2 UNBOUND_FORWARDER CHRONY_SERVER_1 CHRONY_SERVER_2 CHRONY_SERVER_3 WORKDIR KEYCLOAK_DIR; do
@@ -318,6 +225,18 @@ require_keycloak_vars() {
 
   validate_var_not_placeholder "${KEYCLOAK_ADMIN_PASSWORD}"
 }
+
+require_module_file "${BOOTSTRAP_DIR}/dns.sh"
+# shellcheck disable=SC1090
+source "${BOOTSTRAP_DIR}/dns.sh"
+
+require_module_file "${BOOTSTRAP_DIR}/ntp.sh"
+# shellcheck disable=SC1090
+source "${BOOTSTRAP_DIR}/ntp.sh"
+
+require_module_file "${BOOTSTRAP_DIR}/keycloak.sh"
+# shellcheck disable=SC1090
+source "${BOOTSTRAP_DIR}/keycloak.sh"
 
 require_root
 require_env_file
