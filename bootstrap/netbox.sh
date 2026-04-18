@@ -179,8 +179,9 @@ wait_for_netbox_https() {
   local attempt http_code
   local frontend_reachable=0
   local backend_pending=0
+  local netbox_login_url="https://${NETBOX_FQDN}:${NETBOX_PORT}/login/"
 
-  echo "Waiting for NetBox to become ready at https://${NETBOX_FQDN}:${NETBOX_PORT}/login/. First start may take several minutes."
+  echo "Waiting for NetBox to become ready at ${netbox_login_url}. First start may take several minutes."
 
   for attempt in $(seq 1 120); do
     http_code="$(curl --silent --show-error \
@@ -188,7 +189,11 @@ wait_for_netbox_https() {
       --write-out '%{http_code}' \
       --cacert "${CA_DATA_DIR}/certs/root_ca.crt" \
       --resolve "${NETBOX_FQDN}:${NETBOX_PORT}:127.0.0.1" \
-      "https://${NETBOX_FQDN}:${NETBOX_PORT}/login/" || true)"
+      "${netbox_login_url}" || true)"
+
+    if [[ -z "${http_code}" ]]; then
+      http_code="000"
+    fi
 
     case "${http_code}" in
       200|302)
@@ -247,7 +252,9 @@ netbox_api_request() {
 }
 
 json_first_id() {
-  tr -d '\n' | grep -o '"id":[0-9]*' | head -n1 | cut -d: -f2
+  local first_id
+  first_id="$(tr -d '\n' | grep -o '"id":[0-9]*' | head -n1 | cut -d: -f2 || true)"
+  printf '%s' "${first_id}"
 }
 
 json_string_field() {
