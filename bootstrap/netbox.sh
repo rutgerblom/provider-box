@@ -112,9 +112,13 @@ require_ca_ready_for_netbox() {
 
 issue_netbox_certificates() {
   local cert_dir="${NETBOX_DIR}/certs"
+  local cert_dir_in_container="/etc/provider-box/netbox-certs"
   local password_file_in_container="/home/step/${CA_PASSWORD_FILE#${CA_DATA_DIR}/}"
 
   install -d -m 0755 "${cert_dir}"
+  if [[ "$(stat -c %u "${cert_dir}")" != "1000" ]]; then
+    chown 1000:1000 "${cert_dir}"
+  fi
   rm -f \
     "${cert_dir}/netbox.crt" \
     "${cert_dir}/netbox.key" \
@@ -124,9 +128,9 @@ issue_netbox_certificates() {
 
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
-    -v "${cert_dir}:/out" \
+    -v "${cert_dir}:${cert_dir_in_container}" \
     smallstep/step-ca:latest \
-    step ca certificate "${NETBOX_FQDN}" /out/netbox-leaf.crt /out/netbox.key \
+    step ca certificate "${NETBOX_FQDN}" "${cert_dir_in_container}/netbox-leaf.crt" "${cert_dir_in_container}/netbox.key" \
       --san "${NETBOX_FQDN}" \
       --issuer "${CA_PROVISIONER_NAME}" \
       --provisioner-password-file "${password_file_in_container}" \
@@ -142,9 +146,9 @@ issue_netbox_certificates() {
 
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
-    -v "${cert_dir}:/out" \
+    -v "${cert_dir}:${cert_dir_in_container}" \
     smallstep/step-ca:latest \
-    step ca roots /out/netbox-ca-roots.pem \
+    step ca roots "${cert_dir_in_container}/netbox-ca-roots.pem" \
       --ca-url "https://${CA_FQDN}:${CA_PORT}" \
       --root /home/step/certs/root_ca.crt || \
       fail "Failed to fetch the step-ca root bundle for NetBox."
