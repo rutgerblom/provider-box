@@ -185,7 +185,7 @@ pod-240-vc01.sddc.lab 10.203.240.10
 - Note: Initialization only occurs when `CA_DATA_DIR` does not already contain a step-ca configuration. To reinitialize the CA, remove the contents of `CA_DATA_DIR`.
 - Use `CA_NAME`, `CA_FQDN`, `CA_PROVISIONER_NAME`, and `CA_ENABLE_ACME` to control the initial bootstrap configuration
 - The root certificate can be retrieved from `https://<CA_FQDN>:<CA_PORT>/roots.pem`
-- Import the root certificate into VCF components (vCenter, NSX, etc.) when using this CA for issued certificates
+- step-ca can be used to issue certificates for Provider Box services and other lab integrations
 
 ### Keycloak
 
@@ -193,7 +193,7 @@ pod-240-vc01.sddc.lab 10.203.240.10
 - Requires step-ca to be initialized and reachable first; run `--ca` before `--keycloak`
 - Exposes HTTPS on `https://<KEYCLOAK_FQDN>:8443`
 - Uses a server certificate issued by Provider Box step-ca
-- Stores the served certificate chain in `${KEYCLOAK_DIR}/certs/keycloak.crt`
+- Stores the Keycloak HTTPS certificate (leaf + intermediate chain as returned by step-ca) in `${KEYCLOAK_DIR}/certs/keycloak.crt`
 - Stores the private key in `${KEYCLOAK_DIR}/certs/keycloak.key`
 - Stores the CA chain bundle in `${KEYCLOAK_DIR}/certs/keycloak-ca-chain.pem`
 - Stores the CA/root bundle in `${KEYCLOAK_DIR}/certs/keycloak-ca-roots.pem`
@@ -201,10 +201,12 @@ pod-240-vc01.sddc.lab 10.203.240.10
 
 Important output files for the current Keycloak TLS flow:
 
-- `${KEYCLOAK_DIR}/certs/keycloak.crt` for the Keycloak HTTPS certificate chain
+- `${KEYCLOAK_DIR}/certs/keycloak.crt` for the Keycloak HTTPS certificate (leaf + intermediate chain)
 - `${KEYCLOAK_DIR}/certs/keycloak.key` for the Keycloak HTTPS private key
 - `${KEYCLOAK_DIR}/certs/keycloak-ca-chain.pem` for VCF 9 Operations OIDC IdP trust import
 - `${KEYCLOAK_DIR}/certs/keycloak-ca-roots.pem` for the roots-only CA bundle
+
+Note: The root CA is not included in the Keycloak server certificate. Clients must trust the root CA or import the provided CA bundle.
 
 ### SeaweedFS S3
 
@@ -241,7 +243,8 @@ This makes the project safer to reuse in new environments where package availabi
 
 - Use FQDNs instead of raw IPs where possible
 - Ensure both forward and reverse DNS exist for managed hosts
-- Import `${KEYCLOAK_DIR}/certs/keycloak-ca-chain.pem` or `${KEYCLOAK_DIR}/certs/keycloak-ca-roots.pem` into client trust stores as needed for the step-ca-issued Keycloak certificate
+- Import `${KEYCLOAK_DIR}/certs/keycloak-ca-chain.pem` into VCF 9 Operations when configuring Keycloak as the OIDC IdP
+- Use `${KEYCLOAK_DIR}/certs/keycloak-ca-roots.pem` when a roots-only CA bundle is specifically required
 - `configure_resolv_conf()` rewrites `/etc/resolv.conf` and disables `systemd-resolved`
 
 ## Scope
