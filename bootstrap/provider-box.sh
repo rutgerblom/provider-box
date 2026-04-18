@@ -60,7 +60,9 @@ require_package_installed() {
 
 load_env() {
   # shellcheck disable=SC1090
+  set -a
   source "$ENV_FILE"
+  set +a
 }
 
 apt_update_once() {
