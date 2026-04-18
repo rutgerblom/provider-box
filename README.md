@@ -198,20 +198,21 @@ Notes:
 - Requires step-ca to be initialized and reachable first; run `--ca` before `--keycloak`
 - Exposes HTTPS on `https://<KEYCLOAK_FQDN>:8443`
 - Uses a server certificate issued by Provider Box step-ca
-- Stores the Keycloak HTTPS certificate (leaf + intermediate chain as returned by step-ca) in `${KEYCLOAK_DIR}/certs/keycloak.crt`
+- Stores the Keycloak HTTPS certificate file expected by Keycloak in `${KEYCLOAK_DIR}/certs/keycloak.crt`
+- `keycloak.crt` contains the leaf certificate and intermediate chain returned by step-ca
+- The root CA is not included in `keycloak.crt`
 - Stores the private key in `${KEYCLOAK_DIR}/certs/keycloak.key`
 - Stores the CA chain bundle in `${KEYCLOAK_DIR}/certs/keycloak-ca-chain.pem`
 - Stores the CA/root bundle in `${KEYCLOAK_DIR}/certs/keycloak-ca-roots.pem`
 - Import `${KEYCLOAK_DIR}/certs/keycloak-ca-chain.pem` into VCF 9 Operations when configuring Keycloak as the OIDC IdP
+- Clients must trust the root CA separately
 
 Important output files for the current Keycloak TLS flow:
 
-- `${KEYCLOAK_DIR}/certs/keycloak.crt` for the Keycloak HTTPS certificate (leaf + intermediate chain)
+- `${KEYCLOAK_DIR}/certs/keycloak.crt` for the Keycloak HTTPS certificate file (leaf + intermediate chain)
 - `${KEYCLOAK_DIR}/certs/keycloak.key` for the Keycloak HTTPS private key
 - `${KEYCLOAK_DIR}/certs/keycloak-ca-chain.pem` for VCF 9 Operations OIDC IdP trust import
 - `${KEYCLOAK_DIR}/certs/keycloak-ca-roots.pem` for the roots-only CA bundle
-
-Note: The root CA is not included in the Keycloak server certificate. Clients must trust the root CA or import the provided CA bundle.
 
 ### SeaweedFS S3
 
