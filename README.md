@@ -68,6 +68,30 @@ sudo bash bootstrap/provider-box.sh --s3
 sudo bash bootstrap/provider-box.sh --all
 ```
 
+## Development Safeguards
+
+This repository includes local `pre-commit` hooks to catch small hygiene issues and help prevent committing secrets to a public repository.
+
+Install `pre-commit` locally:
+
+```bash
+pipx install pre-commit
+```
+
+Install the hooks for this repository:
+
+```bash
+pre-commit install
+```
+
+Run all configured checks manually:
+
+```bash
+pre-commit run --all-files
+```
+
+The configured Gitleaks hook scans for accidentally committed secrets before a commit is created. The real `config/provider-box.env` file is intentionally gitignored and should never be committed.
+
 ## Configuration Model
 
 `config/provider-box.env` defines host, DNS, NTP, certificate, Keycloak, and S3 settings.
