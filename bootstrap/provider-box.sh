@@ -255,10 +255,11 @@ require_env_vars() {
 
 require_keycloak_vars() {
   local var
-  for var in KEYCLOAK_ADMIN_USER KEYCLOAK_ADMIN_PASSWORD CERT_C CERT_ST CERT_L CERT_O CERT_OU_CA CERT_OU_IDP CERT_CA_CN; do
+  for var in KEYCLOAK_FQDN KEYCLOAK_ADMIN_USER KEYCLOAK_ADMIN_PASSWORD; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
+  validate_var_fqdn "${KEYCLOAK_FQDN}"
   validate_var_not_placeholder "${KEYCLOAK_ADMIN_PASSWORD}"
 }
 

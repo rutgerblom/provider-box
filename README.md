@@ -117,7 +117,7 @@ The configured Gitleaks hook scans for accidentally committed secrets before a c
 
 ## Configuration Model
 
-`config/provider-box.env` defines host, DNS, NTP, rsyslog, CA, certificate, Keycloak, S3, and SFTP settings.
+`config/provider-box.env` defines host, DNS, NTP, rsyslog, CA, Keycloak, S3, and SFTP settings.
 
 The bootstrap script now validates configuration more strictly before making changes:
 
@@ -177,7 +177,7 @@ pod-240-vc01.sddc.lab 10.203.240.10
 - Persists CA data under `CA_DATA_DIR`
 - Intended as a lightweight private CA for lab, homelab, and VCF companion use
 - `CA_FQDN` is generated automatically from `config/provider-box.env`
-- This CA service does not yet replace the existing Keycloak certificate generation flow
+- step-ca issues the Keycloak server certificate used by the Provider Box Keycloak deployment
 - step-ca auto-initializes on first start using the documented Docker init variables
 - `CA_PASSWORD_FILE` must exist before running `--ca`
 - `CA_PASSWORD_FILE` must be located under `CA_DATA_DIR`
@@ -190,14 +190,21 @@ pod-240-vc01.sddc.lab 10.203.240.10
 ### Keycloak
 
 - Deploys with Docker Compose
+- Requires step-ca to be initialized and reachable first; run `--ca` before `--keycloak`
 - Exposes HTTPS on `https://<KEYCLOAK_FQDN>:8443`
-- Generates a self-signed certificate for the Keycloak service
-- This can be replaced with certificates issued by step-ca in future integrations
+- Uses a server certificate issued by Provider Box step-ca
+- Stores the served certificate chain in `${KEYCLOAK_DIR}/certs/keycloak.crt`
+- Stores the private key in `${KEYCLOAK_DIR}/certs/keycloak.key`
+- Stores the CA chain bundle in `${KEYCLOAK_DIR}/certs/keycloak-ca-chain.pem`
+- Stores the CA/root bundle in `${KEYCLOAK_DIR}/certs/keycloak-ca-roots.pem`
+- Import `${KEYCLOAK_DIR}/certs/keycloak-ca-chain.pem` into VCF 9 Operations when configuring Keycloak as the OIDC IdP
 
-Important output files in `${WORKDIR}` for the current Keycloak bootstrap flow (self-signed CA):
+Important output files for the current Keycloak TLS flow:
 
-- `provider-box-ca.crt` for client trust import
-- `keycloak-chain.crt` for full certificate chain distribution
+- `${KEYCLOAK_DIR}/certs/keycloak.crt` for the Keycloak HTTPS certificate chain
+- `${KEYCLOAK_DIR}/certs/keycloak.key` for the Keycloak HTTPS private key
+- `${KEYCLOAK_DIR}/certs/keycloak-ca-chain.pem` for VCF 9 Operations OIDC IdP trust import
+- `${KEYCLOAK_DIR}/certs/keycloak-ca-roots.pem` for the roots-only CA bundle
 
 ### SeaweedFS S3
 
@@ -234,7 +241,7 @@ This makes the project safer to reuse in new environments where package availabi
 
 - Use FQDNs instead of raw IPs where possible
 - Ensure both forward and reverse DNS exist for managed hosts
-- Import the generated CA certificate into client trust stores if you use the generated Keycloak certs
+- Import `${KEYCLOAK_DIR}/certs/keycloak-ca-chain.pem` or `${KEYCLOAK_DIR}/certs/keycloak-ca-roots.pem` into client trust stores as needed for the step-ca-issued Keycloak certificate
 - `configure_resolv_conf()` rewrites `/etc/resolv.conf` and disables `systemd-resolved`
 
 ## Scope

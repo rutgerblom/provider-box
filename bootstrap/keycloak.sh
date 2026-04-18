@@ -1,68 +1,95 @@
 #!/usr/bin/env bash
 
-generate_certs() {
-  mkdir -p "${WORKDIR}" "${KEYCLOAK_DIR}/certs" "${KEYCLOAK_DIR}/data"
+require_keycloak_ca_vars() {
+  local var
+  for var in CA_FQDN CA_PORT CA_DATA_DIR CA_PROVISIONER_NAME CA_PASSWORD_FILE; do
+    [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
+  done
 
-  cat > "${WORKDIR}/keycloak-openssl.cnf" <<EOF
-[ req ]
-default_bits       = 2048
-distinguished_name = req_distinguished_name
-req_extensions     = req_ext
-prompt             = no
+  validate_var_fqdn "${CA_FQDN}"
+  validate_var_port "${CA_PORT}"
+  validate_var_path "${CA_DATA_DIR}"
+  validate_var_path "${CA_PASSWORD_FILE}"
+  [[ "${CA_PASSWORD_FILE}" == "${CA_DATA_DIR}"/* ]] || \
+    fail "CA_PASSWORD_FILE must be located under CA_DATA_DIR so the step-ca container can read it"
+}
 
-[ req_distinguished_name ]
-C  = ${CERT_C}
-ST = ${CERT_ST}
-L  = ${CERT_L}
-O  = ${CERT_O}
-OU = ${CERT_OU_IDP}
-CN = ${KEYCLOAK_FQDN}
+require_ca_ready_for_keycloak() {
+  [[ -f "${CA_DATA_DIR}/config/ca.json" ]] || \
+    fail "step-ca is not initialized. Run --ca first."
+  [[ -f "${CA_DATA_DIR}/certs/root_ca.crt" ]] || \
+    fail "Missing step-ca root certificate in ${CA_DATA_DIR}/certs/root_ca.crt. Run --ca first."
+  [[ -f "${CA_DATA_DIR}/certs/intermediate_ca.crt" ]] || \
+    fail "Missing step-ca intermediate certificate in ${CA_DATA_DIR}/certs/intermediate_ca.crt. Run --ca first."
+  [[ -f "${CA_PASSWORD_FILE}" ]] || \
+    fail "Missing CA password file: ${CA_PASSWORD_FILE}. Run --ca first after creating it."
 
-[ req_ext ]
-subjectAltName = @alt_names
+  curl --silent --show-error --fail \
+    --cacert "${CA_DATA_DIR}/certs/root_ca.crt" \
+    --resolve "${CA_FQDN}:${CA_PORT}:127.0.0.1" \
+    "https://${CA_FQDN}:${CA_PORT}/roots.pem" >/dev/null || \
+    fail "step-ca is not reachable on https://${CA_FQDN}:${CA_PORT}. Run --ca first and ensure the CA is healthy."
+}
 
-[ alt_names ]
-DNS.1 = ${KEYCLOAK_FQDN}
-IP.1  = ${HOST_IP}
-EOF
+issue_keycloak_certificates() {
+  local cert_dir="${KEYCLOAK_DIR}/certs"
+  local password_file_in_container="/home/step/${CA_PASSWORD_FILE#${CA_DATA_DIR}/}"
 
-  openssl genrsa -out "${WORKDIR}/provider-box-ca.key" 4096
-  openssl req -x509 -new -nodes \
-    -key "${WORKDIR}/provider-box-ca.key" \
-    -sha256 -days 3650 \
-    -out "${WORKDIR}/provider-box-ca.crt" \
-    -subj "/C=${CERT_C}/ST=${CERT_ST}/L=${CERT_L}/O=${CERT_O}/OU=${CERT_OU_CA}/CN=${CERT_CA_CN}"
+  install -d -m 0755 "${WORKDIR}/keycloak" "${cert_dir}" "${KEYCLOAK_DIR}/data"
 
-  openssl genrsa -out "${WORKDIR}/${KEYCLOAK_FQDN}.key" 2048
-  openssl req -new \
-    -key "${WORKDIR}/${KEYCLOAK_FQDN}.key" \
-    -out "${WORKDIR}/${KEYCLOAK_FQDN}.csr" \
-    -config "${WORKDIR}/keycloak-openssl.cnf"
+  rm -f \
+    "${cert_dir}/keycloak.crt" \
+    "${cert_dir}/keycloak.key" \
+    "${cert_dir}/keycloak-ca-chain.pem" \
+    "${cert_dir}/keycloak-ca-roots.pem" \
+    "${cert_dir}/keycloak-leaf.crt"
 
-  openssl x509 -req \
-    -in "${WORKDIR}/${KEYCLOAK_FQDN}.csr" \
-    -CA "${WORKDIR}/provider-box-ca.crt" \
-    -CAkey "${WORKDIR}/provider-box-ca.key" \
-    -CAcreateserial \
-    -out "${WORKDIR}/${KEYCLOAK_FQDN}.crt" \
-    -days 825 \
-    -sha256 \
-    -extensions req_ext \
-    -extfile "${WORKDIR}/keycloak-openssl.cnf"
+  docker run --rm --network host \
+    -v "${CA_DATA_DIR}:/home/step" \
+    -v "${cert_dir}:/out" \
+    smallstep/step-ca:latest \
+    step ca certificate "${KEYCLOAK_FQDN}" /out/keycloak-leaf.crt /out/keycloak.key \
+      --san "${KEYCLOAK_FQDN}" \
+      --issuer "${CA_PROVISIONER_NAME}" \
+      --provisioner-password-file "${password_file_in_container}" \
+      --ca-url "https://${CA_FQDN}:${CA_PORT}" \
+      --root /home/step/certs/root_ca.crt || \
+      fail "Failed to issue a Keycloak certificate from step-ca."
 
-  install -D -m 0644 "${WORKDIR}/${KEYCLOAK_FQDN}.crt" "${KEYCLOAK_DIR}/certs/${KEYCLOAK_FQDN}.crt"
-  install -D -m 0600 "${WORKDIR}/${KEYCLOAK_FQDN}.key" "${KEYCLOAK_DIR}/certs/${KEYCLOAK_FQDN}.key"
-  chown -R 1000:1000 "${KEYCLOAK_DIR}"
+  cat "${cert_dir}/keycloak-leaf.crt" "${CA_DATA_DIR}/certs/intermediate_ca.crt" > "${cert_dir}/keycloak.crt" || \
+    fail "Failed to build the Keycloak certificate chain."
 
-  cat "${WORKDIR}/${KEYCLOAK_FQDN}.crt" "${WORKDIR}/provider-box-ca.crt" > "${WORKDIR}/keycloak-chain.crt"
+  cat "${CA_DATA_DIR}/certs/intermediate_ca.crt" "${CA_DATA_DIR}/certs/root_ca.crt" > "${cert_dir}/keycloak-ca-chain.pem" || \
+    fail "Failed to build the Keycloak CA chain bundle."
+
+  docker run --rm --network host \
+    -v "${CA_DATA_DIR}:/home/step" \
+    -v "${cert_dir}:/out" \
+    smallstep/step-ca:latest \
+    step ca roots /out/keycloak-ca-roots.pem \
+      --ca-url "https://${CA_FQDN}:${CA_PORT}" \
+      --root /home/step/certs/root_ca.crt || \
+      fail "Failed to fetch the step-ca root bundle for Keycloak."
+
+  rm -f "${cert_dir}/keycloak-leaf.crt"
+  chmod 0644 "${cert_dir}/keycloak.crt" "${cert_dir}/keycloak-ca-chain.pem" "${cert_dir}/keycloak-ca-roots.pem"
+  chmod 0600 "${cert_dir}/keycloak.key"
+  chown 1000:1000 \
+    "${KEYCLOAK_DIR}/data" \
+    "${cert_dir}" \
+    "${cert_dir}/keycloak.crt" \
+    "${cert_dir}/keycloak.key" \
+    "${cert_dir}/keycloak-ca-chain.pem" \
+    "${cert_dir}/keycloak-ca-roots.pem"
 }
 
 do_keycloak() {
   require_keycloak_vars
+  require_keycloak_ca_vars
   common_pkgs
   docker_pkgs
-  generate_certs
-  mkdir -p "${WORKDIR}/keycloak"
+  require_ca_ready_for_keycloak
+  issue_keycloak_certificates
   render_template "${TEMPLATE_DIR}/docker-compose.keycloak.yml.tpl" "${WORKDIR}/keycloak/docker-compose.yml"
   (
     cd "${WORKDIR}/keycloak"
