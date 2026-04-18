@@ -16,6 +16,7 @@ Usage:
   sudo bash bootstrap/provider-box.sh --unbound
   sudo bash bootstrap/provider-box.sh --ntp
   sudo bash bootstrap/provider-box.sh --keycloak
+  sudo bash bootstrap/provider-box.sh --s3
   sudo bash bootstrap/provider-box.sh --all
 USAGE
 }
@@ -181,6 +182,16 @@ validate_var_not_placeholder() {
   [[ "$1" != "CHANGE_ME" ]] || fail "Replace placeholder value before continuing"
 }
 
+validate_port() {
+  local port="$1"
+  [[ "$port" =~ ^[0-9]+$ ]] || return 1
+  (( port >= 1 && port <= 65535 ))
+}
+
+validate_var_port() {
+  validate_port "$1" || fail "Invalid TCP port: $1"
+}
+
 validate_records_file() {
   local line line_no=0 fqdn ip
   while IFS= read -r line; do
@@ -238,6 +249,10 @@ require_module_file "${BOOTSTRAP_DIR}/keycloak.sh"
 # shellcheck disable=SC1090
 source "${BOOTSTRAP_DIR}/keycloak.sh"
 
+require_module_file "${BOOTSTRAP_DIR}/s3.sh"
+# shellcheck disable=SC1090
+source "${BOOTSTRAP_DIR}/s3.sh"
+
 require_root
 
 [[ $# -eq 1 ]] || { usage; exit 1; }
@@ -262,6 +277,12 @@ case "$1" in
     require_env_vars
     do_keycloak
     ;;
+  --s3)
+    require_env_file
+    load_env
+    require_env_vars
+    do_s3
+    ;;
   --all)
     require_env_file
     load_env
@@ -270,6 +291,7 @@ case "$1" in
     do_unbound
     do_ntp
     do_keycloak
+    do_s3
     ;;
   -h|--help)
     usage

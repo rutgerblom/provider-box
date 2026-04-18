@@ -5,10 +5,11 @@ Provider Box is a small Ubuntu/Debian bootstrap project for standing up shared i
 - Unbound for internal DNS
 - Chrony for internal NTP
 - Keycloak for identity
+- SeaweedFS for S3-compatible object storage
 
 The repository is intentionally simple: copy the example configuration, update values for your environment, and run the bootstrap script for the services you want.
 
-`bootstrap/provider-box.sh` remains the entrypoint and loads service-specific modules from `bootstrap/dns.sh`, `bootstrap/ntp.sh`, and `bootstrap/keycloak.sh`.
+`bootstrap/provider-box.sh` remains the entrypoint and loads service-specific modules from `bootstrap/dns.sh`, `bootstrap/ntp.sh`, `bootstrap/keycloak.sh`, and `bootstrap/s3.sh`.
 
 ## What This Repository Is
 
@@ -32,6 +33,7 @@ bootstrap/
   keycloak.sh
   ntp.sh
   provider-box.sh
+  s3.sh
 
 config/
   provider-box.env.example
@@ -41,6 +43,7 @@ templates/
   unbound.conf.tpl
   chrony.conf.tpl
   docker-compose.keycloak.yml.tpl
+  docker-compose.s3.yml.tpl
 
 legacy/
 ```
@@ -61,12 +64,13 @@ cp config/unbound.records.example config/unbound.records
 sudo bash bootstrap/provider-box.sh --unbound
 sudo bash bootstrap/provider-box.sh --ntp
 sudo bash bootstrap/provider-box.sh --keycloak
+sudo bash bootstrap/provider-box.sh --s3
 sudo bash bootstrap/provider-box.sh --all
 ```
 
 ## Configuration Model
 
-`config/provider-box.env` defines host, DNS, NTP, certificate, and Keycloak settings.
+`config/provider-box.env` defines host, DNS, NTP, certificate, Keycloak, and S3 settings.
 
 The bootstrap script now validates configuration more strictly before making changes:
 
@@ -76,9 +80,10 @@ The bootstrap script now validates configuration more strictly before making cha
 - FQDN/domain values must be syntactically valid
 - `WORKDIR` and `KEYCLOAK_DIR` must be absolute paths
 - Keycloak password placeholders such as `CHANGE_ME` are rejected
+- S3 credentials cannot be left as placeholder values
 - DNS record entries must follow `<fqdn> <ip>` format
 
-Keycloak-specific validation only runs for `--keycloak` and `--all`.
+Keycloak-specific validation only runs for `--keycloak` and `--all`. S3-specific validation only runs for `--s3` and `--all`.
 
 ## Service Notes
 
@@ -115,6 +120,13 @@ Important output files in `${WORKDIR}`:
 
 - `provider-box-ca.crt` for client trust import
 - `keycloak-chain.crt` for full certificate chain distribution
+
+### SeaweedFS S3
+
+- Deploys as a single-node SeaweedFS server with the S3 API enabled
+- Uses Docker Compose
+- Exposes the S3-compatible endpoint on `http://<S3_FQDN>:<S3_PORT>`
+- Persists object data under `S3_DATA_DIR`
 
 ## Failure Handling
 
