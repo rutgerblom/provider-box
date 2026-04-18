@@ -60,7 +60,7 @@ cp config/unbound.records.example config/unbound.records
 ```
 
 2. Update `config/provider-box.env` and `config/unbound.records` for your environment.
-   If you enable S3, make sure `S3_FQDN` is also present in `config/unbound.records` so Unbound generates the matching A and PTR records.
+   If you enable S3 or SFTP, make sure `S3_FQDN` and/or `SFTP_FQDN` are also present in `config/unbound.records` so Unbound generates the matching A and PTR records.
 3. Run the bootstrap script for the component you want:
 
 ```bash
