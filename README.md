@@ -23,6 +23,7 @@ The repository is intentionally simple: copy the example configuration, update v
 - Root or `sudo` access
 - Static IP already configured
 - Access to Ubuntu/Debian package repositories
+- `bind9-dnsutils` available from the host package manager for DNS tooling
 - Docker packages available from the host package manager when deploying Keycloak or SeaweedFS S3
 
 ## Repository Layout
@@ -81,6 +82,7 @@ The bootstrap script now validates configuration more strictly before making cha
 - Keycloak password placeholders such as `CHANGE_ME` are rejected
 - S3 credentials cannot be left as placeholder values
 - DNS record entries must follow `<fqdn> <ip>` format
+- Environment variables from `config/provider-box.env` are exported before template rendering so `envsubst` can populate all template values correctly
 
 Keycloak-specific validation only runs for `--keycloak` and `--all`. S3-specific validation only runs for `--s3` and `--all`.
 
@@ -91,6 +93,7 @@ Keycloak-specific validation only runs for `--keycloak` and `--all`. S3-specific
 - Serves the configured search domain as a static local zone
 - Generates both forward and reverse records from `config/unbound.records`
 - Uses the configured upstream forwarder for external lookups
+- Removes the known legacy `/etc/unbound/unbound.conf.d/sddc.conf` file before rendering `provider-box.conf` to avoid duplicate directive conflicts on reruns
 
 Record format:
 
