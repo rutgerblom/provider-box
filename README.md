@@ -1,45 +1,149 @@
 # Provider Box
 
-Provider Box is a lightweight, single-node bootstrap framework for standing up shared infrastructure services on a dedicated **provider services node**.
+Provider Box is a lightweight bootstrap framework for standing up shared infrastructure services on a single host acting as a dedicated **provider services node**.
 
-It is designed for lab and homelab environments, especially VMware Cloud Foundation (VCF), where external infrastructure services must be self-contained and reproducible.
+It is opinionated for lab and homelab environments and includes templates for:
+
+- Unbound for internal DNS
+- Chrony for internal NTP
+- rsyslog for centralized syslog collection
+- step-ca for a lightweight private certificate authority
+- Keycloak for identity
+- NetBox for IPAM, DCIM, and infrastructure source-of-truth
+- SeaweedFS for S3-compatible object storage
+- SFTPGo for SFTP file transfer
+
+The repository is intentionally simple: copy the example configuration, update values for your environment, and execute the bootstrap script for the services you need.
+
+`bootstrap/provider-box.sh` is the entrypoint. It loads service-specific modules from `bootstrap/dns.sh`, `bootstrap/ntp.sh`, `bootstrap/rsyslog.sh`, `bootstrap/ca.sh`, `bootstrap/keycloak.sh`, `bootstrap/netbox.sh`, `bootstrap/s3.sh`, and `bootstrap/sftp.sh`.
 
 ---
 
-## Table of Contents
+## VCF Lab Companion
 
-- [Quick Start](#quick-start)
-- [Choosing Services](#choosing-services)
-- [Configuration Model](#configuration-model)
-- [Service Overview](#service-notes)
-- [VCF Lab Companion](#vcf-lab-companion)
-- [Design Trade-offs](#design-trade-offs)
-- [Repository Layout](#repository-layout)
-- [Development Safeguards](#development-safeguards-optional)
-- [Failure Handling](#failure-handling)
-- [Operational Notes](#operational-notes)
-- [Scope](#scope)
+Provider Box provides a lightweight **external infrastructure services platform** for VMware Cloud Foundation (VCF) lab and PoC environments.
+
+VCF deployments depend on external services that are not provided by the platform itself.
+
+### VCF dependency chain
+
+**Pre-deployment (hard requirements):**
+- DNS (forward and reverse resolution)
+- NTP (time synchronization)
+
+**Post-deployment (operational dependencies):**
+- Identity provider (OIDC / federation)
+- Logging (syslog)
+- Certificate authority
+- Object storage and file transfer (optional)
+
+Provider Box enables these services to be delivered from a single, reproducible node, making it easier to build and operate VCF environments without relying on external enterprise infrastructure.
+
+This is particularly useful in homelab or isolated environments where all supporting services must be self-contained.
+
+---
+
+## What This Repository Is
+
+- A shell-based bootstrap framework for shared infrastructure services
+- A template-driven configuration model with strict validation
+- Designed for fast, repeatable lab and PoC deployments
+
+---
+
+## Design Trade-offs
+
+Provider Box is intentionally single-node and not highly available.
+
+It prioritizes:
+- simplicity
+- reproducibility
+- low resource footprint
+
+over:
+- redundancy
+- production-grade resilience
+
+---
+
+## What It Assumes
+
+- Ubuntu or Debian-based host (tested on Debian GNU/Linux 13 “trixie”)
+- Root or `sudo` access
+- Static IP and prefix already configured
+- Network connectivity from the VCF environment to this host
+- Access to Ubuntu/Debian package repositories
+- `bind9-dnsutils` available for DNS tooling
+- Docker packages available when deploying step-ca, Keycloak, NetBox, SeaweedFS, or SFTPGo
+
+Provider Box uses Docker Compose via `docker compose`. On Debian GNU/Linux 13, the `docker-compose` package provides this functionality.
+
+---
+
+## Repository Layout
+
+```text
+bootstrap/
+  ca.sh
+  dns.sh
+  keycloak.sh
+  netbox.sh
+  ntp.sh
+  provider-box.sh
+  rsyslog.sh
+  s3.sh
+  sftp.sh
+
+config/
+  provider-box.env.example
+  unbound.records.example
+
+templates/
+  unbound.conf.tpl
+  chrony.conf.tpl
+  rsyslog.conf.tpl
+  docker-compose.step-ca.yml.tpl
+  docker-compose.keycloak.yml.tpl
+  docker-compose.netbox.yml.tpl
+  docker-compose.s3.yml.tpl
+  docker-compose.sftpgo.yml.tpl
+  netbox-nginx.conf.tpl
+```
 
 ---
 
 ## Quick Start
 
-1. Copy the example configuration:
+1. Copy the example files:
 
+```bash
 cp config/provider-box.env.example config/provider-box.env
 cp config/unbound.records.example config/unbound.records
+```
 
-2. Replace placeholder secrets:
+2. Update configuration files:
 
+- `config/provider-box.env` defines all service configuration
+- `config/unbound.records` defines external/custom DNS records
+
+Provider Box service FQDNs are generated automatically based on values in `provider-box.env`.
+
+### Quick Password Setup
+
+To quickly replace all placeholder passwords with a single value:
+
+```bash
 PASSWORD='VMware1!VMware1!' \
 SECRET_KEY=$(openssl rand -base64 48) \
 && sed -i \
   -e "s/CHANGE_ME_WITH_AT_LEAST_50_RANDOM_CHARACTERS_BEFORE_USE/$SECRET_KEY/g" \
   -e "s/CHANGE_ME/$PASSWORD/g" \
   config/provider-box.env
+```
 
-3. Deploy services:
+3. Execute the bootstrap script:
 
+```bash
 sudo bash bootstrap/provider-box.sh --unbound
 sudo bash bootstrap/provider-box.sh --ntp
 sudo bash bootstrap/provider-box.sh --rsyslog
@@ -48,47 +152,220 @@ sudo bash bootstrap/provider-box.sh --keycloak
 sudo bash bootstrap/provider-box.sh --netbox
 sudo bash bootstrap/provider-box.sh --s3
 sudo bash bootstrap/provider-box.sh --sftp
-
-Or deploy everything:
-
 sudo bash bootstrap/provider-box.sh --all
+```
 
 ---
 
 ## Choosing Services
 
-Minimum required:
+**Minimum required for VCF bring-up:**
 - Unbound (DNS)
 - Chrony (NTP)
 
-Recommended:
+**Recommended for realistic lab environments:**
 - rsyslog
 - step-ca
 - Keycloak
 - NetBox
 
-Optional:
+**Optional depending on use case:**
 - SeaweedFS (S3)
 - SFTPGo
 
 ---
 
+## Development Safeguards (Optional)
+
+This repository can optionally be used with local `pre-commit` hooks to catch hygiene issues and prevent committing secrets.
+
+Install:
+
+```bash
+pipx install pre-commit
+pre-commit install
+```
+
+Run manually:
+
+```bash
+pre-commit run --all-files
+```
+
+The configured Gitleaks hook scans for secrets before commits are created.
+
+---
+
 ## Configuration Model
 
-All configuration is defined in:
+`config/provider-box.env` defines all service configuration.
 
-config/provider-box.env
+Validation is strict and designed to fail fast before any service is deployed:
 
-Validation is strict and fails fast.
+- Required variables must be set
+- `HOST_IP` must use valid IPv4 CIDR notation
+- Network allow lists must be valid CIDR ranges
+- FQDN/domain values must be syntactically valid
+- Paths must be absolute where required
+- Placeholder values (e.g. `CHANGE_ME`) are rejected
+- DNS records must follow `<fqdn> <ip>` or `<fqdn> <ip/cidr>` format
+
+Environment variables are exported before template rendering so `envsubst` can correctly populate all templates.
+
+`HOST_IP` now uses CIDR notation, for example `192.168.12.121/24`. Provider Box derives the raw host address where services need a plain IPv4 value and keeps the subnet information available for NetBox IPAM import.
+
+`PROVIDER_BOX_FQDN` defines the canonical host identity for the shared Provider Box host IP. Provider Box service FQDNs remain service endpoints on that same host.
+
+Validation is executed per service based on selected flags.
 
 ---
 
 ## Service Notes
 
-See individual service sections for details.
+### Unbound
+
+- Acts as the authoritative DNS server for the lab domain
+- Serves the configured domain as a static local zone
+- Generates Provider Box service records automatically
+- Includes `PROVIDER_BOX_FQDN` as the canonical host record for the Provider Box node
+- Uses `config/unbound.records` only for external/custom records
+- Uses `PROVIDER_BOX_FQDN` as the reverse PTR target for the Provider Box host IP
+- Uses configured upstream forwarder for external resolution
+
+Record format:
+
+```text
+<fqdn> <ip>
+<fqdn> <ip/cidr>
+```
+
+If a record includes CIDR information, Provider Box can derive the surrounding subnet for NetBox, create the prefix object, and import the IP address object with the same mask. If a record uses only a plain IP, Provider Box imports the host address as `/32` without guessing a prefix.
+
+---
+
+### Chrony
+
+- Uses configured upstream NTP servers
+- Provides NTP service to internal networks
+
+---
+
+### rsyslog
+
+- Runs natively on the host
+- Exposes centralized syslog via UDP and TCP
+- Intended for log aggregation, not long-term analytics
+- Stores logs per host and program under `SYSLOG_LOG_DIR`
+
+---
+
+### step-ca
+
+- Runs as a single-node Smallstep CA via Docker Compose
+- Acts as the internal PKI for Provider Box services
+- Exposed at `https://<CA_FQDN>:<CA_PORT>`
+- Persists data under `CA_DATA_DIR`
+
+Behavior:
+- Initializes automatically on first start
+- Generates CA password file if missing
+
+Important:
+- Reinitialization requires deleting `CA_DATA_DIR`
+- Root certificate available at `/roots.pem`
+
+---
+
+### Keycloak
+
+- Runs via Docker Compose
+- Requires step-ca to be initialized first
+- Uses certificates issued by step-ca
+- Exposed at `https://<KEYCLOAK_FQDN>:8443`
+
+Key files:
+
+- `keycloak.crt` (leaf + intermediate)
+- `keycloak.key` (private key)
+- `keycloak-ca-chain.pem` (for VCF OIDC trust)
+- `keycloak-ca-roots.pem` (roots-only bundle)
+
+---
+
+### NetBox
+
+- Runs via Docker Compose with NetBox, PostgreSQL, Redis, and a small HTTPS terminator
+- Requires step-ca to be initialized first
+- Intended as an IPAM, DCIM, and infrastructure source-of-truth service
+- Exposed at `https://<NETBOX_FQDN>:<NETBOX_PORT>`
+- Persists application media under `NETBOX_MEDIA_DIR`
+- Persists PostgreSQL data under `NETBOX_POSTGRES_DATA_DIR`
+- Persists Redis data under `NETBOX_REDIS_DATA_DIR`
+- Uses a step-ca-issued certificate stored under `${NETBOX_DIR}/certs`
+- Bootstraps the initial superuser from `NETBOX_SUPERUSER_*` variables on first start
+- Seeds Provider Box service endpoints into NetBox via the NetBox API after startup
+- Uses `PROVIDER_BOX_FQDN` as the canonical `dns_name` for the shared Provider Box host IP object
+- Stores the built-in Provider Box service FQDNs in that host IP object description
+- Keeps the individual service FQDNs as service endpoints on the same host
+- Imports DNS records from `config/unbound.records` into NetBox via the API as IP address entries with DNS names
+- Imports prefix objects when `HOST_IP` or `config/unbound.records` entries include CIDR information
+- Uses the actual configured mask for NetBox IP address objects when CIDR is known, for example `192.168.12.121/24`
+- Falls back to `/32` only when subnet information is not available
+- Creates prefix objects separately when CIDR information is available
+- Creates one NetBox IP address object per unique address value; built-in Provider Box service FQDNs share that canonical host IP object instead of creating duplicates
+- This canonical host-IP model is a NetBox seeding behavior only; it does not require Unbound to be deployed
+
+---
+
+### SeaweedFS S3
+
+- Single-node S3-compatible object storage
+- Exposed at `http://<S3_FQDN>:<S3_PORT>`
+- Data persisted under `S3_DATA_DIR`
+
+---
+
+### SFTPGo
+
+- Single-node SFTP service via Docker Compose
+- Requires step-ca to be initialized first
+- Exposes:
+  - SFTP endpoint
+  - Admin UI over `https://<SFTP_FQDN>:<SFTP_ADMIN_PORT>`
+- Uses a step-ca-issued certificate for the HTTPS admin UI
+- Stores the SFTPGo admin UI certificate under `SFTP_CERT_DIR`
+- Bootstraps the initial admin user from `SFTP_ADMIN_USER` and `SFTP_ADMIN_PASSWORD`
+
+---
+
+## Failure Handling
+
+The bootstrap process fails fast if:
+
+- required files are missing
+- package installation fails
+- required commands are unavailable
+- validation fails
+
+This ensures predictable and reproducible deployments.
+
+---
+
+## Operational Notes
+
+- Use FQDNs instead of IPs where possible
+- Ensure both forward and reverse DNS are configured
+- Import `keycloak-ca-chain.pem` into VCF when configuring OIDC
+- Use `keycloak-ca-roots.pem` where roots-only trust is required
+
+### DNS behavior warning
+
+`configure_resolv_conf()` rewrites `/etc/resolv.conf` and disables `systemd-resolved`.
+
+This overrides local DNS resolution behavior on the host.
 
 ---
 
 ## Scope
 
-Provider Box is intended for lab and PoC environments only.
+Provider Box focuses on a simple, modular, and reproducible way to deploy shared infrastructure services on a single host for lab and PoC environments.
