@@ -4,8 +4,8 @@ Provider Box is a lightweight, single-node bootstrap framework for standing up s
 
 It is designed for lab and proof-of-concept environments, especially VMware Cloud Foundation (VCF). It includes bootstrap support for:
 
-- Unbound for internal DNS
-- Chrony for internal NTP
+- Unbound for DNS
+- Chrony for NTP
 - rsyslog for centralized syslog collection
 - step-ca for a lightweight private certificate authority
 - Keycloak for identity
