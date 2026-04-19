@@ -1,6 +1,6 @@
 services:
   sftpgo:
-    image: drakkan/sftpgo:latest
+    image: drakkan/sftpgo:2.7.0
     restart: unless-stopped
     ports:
       - "${SFTP_PORT}:2022"

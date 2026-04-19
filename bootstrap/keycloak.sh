@@ -47,7 +47,7 @@ issue_keycloak_certificates() {
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
     -v "${cert_dir}:/out" \
-    smallstep/step-ca:latest \
+    smallstep/step-ca:0.29.0 \
     step ca certificate "${KEYCLOAK_FQDN}" /out/keycloak-leaf.crt /out/keycloak.key \
       --san "${KEYCLOAK_FQDN}" \
       --issuer "${CA_PROVISIONER_NAME}" \
@@ -65,7 +65,7 @@ issue_keycloak_certificates() {
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
     -v "${cert_dir}:/out" \
-    smallstep/step-ca:latest \
+    smallstep/step-ca:0.29.0 \
     step ca roots /out/keycloak-ca-roots.pem \
       --ca-url "https://${CA_FQDN}:${CA_PORT}" \
       --root /home/step/certs/root_ca.crt || \

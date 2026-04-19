@@ -129,7 +129,7 @@ issue_netbox_certificates() {
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
     -v "${cert_dir}:${cert_dir_in_container}" \
-    smallstep/step-ca:latest \
+    smallstep/step-ca:0.29.0 \
     step ca certificate "${NETBOX_FQDN}" "${cert_dir_in_container}/netbox-leaf.crt" "${cert_dir_in_container}/netbox.key" \
       --san "${NETBOX_FQDN}" \
       --issuer "${CA_PROVISIONER_NAME}" \
@@ -147,7 +147,7 @@ issue_netbox_certificates() {
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
     -v "${cert_dir}:${cert_dir_in_container}" \
-    smallstep/step-ca:latest \
+    smallstep/step-ca:0.29.0 \
     step ca roots "${cert_dir_in_container}/netbox-ca-roots.pem" \
       --ca-url "https://${CA_FQDN}:${CA_PORT}" \
       --root /home/step/certs/root_ca.crt || \

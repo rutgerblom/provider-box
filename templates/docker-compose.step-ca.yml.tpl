@@ -1,6 +1,6 @@
 services:
   step-ca:
-    image: smallstep/step-ca:latest
+    image: smallstep/step-ca:0.29.0
     restart: unless-stopped
     environment:
       DOCKER_STEPCA_INIT_NAME: "${CA_NAME}"
