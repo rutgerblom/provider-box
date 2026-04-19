@@ -168,6 +168,18 @@ All services must:
 
 ---
 
+## Service Independence
+
+Unless a dependency is already intentional and documented, services must remain independently deployable.
+
+Examples:
+- NetBox must not require Unbound
+- Unbound must not require NetBox
+
+Cross-service integrations must be additive, not mandatory.
+
+---
+
 ## Implementation Guidelines
 
 - Read existing modules before writing new ones
