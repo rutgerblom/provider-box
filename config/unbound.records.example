@@ -14,7 +14,6 @@
 # PTR records are generated automatically by the bootstrap script
 
 host32.sddc.lab 10.203.5.32/24
-mgmt-gateway.sddc.lab 192.168.12.1/24
 pod-240-vc01.sddc.lab 10.203.240.10/24
 pod-240-nsx01.sddc.lab 10.203.240.11/24
 pod-240-nsx02.sddc.lab 10.203.240.12/24
