@@ -56,10 +56,10 @@ To quickly replace all placeholder passwords with a single value:
 
 ```bash
 PASSWORD='VMware1!VMware1!' \
-SECRET_KEY=$(openssl rand -base64 48) \
+SECRET_KEY=$(openssl rand -base64 48 | sed 's/[&]/\\&/g') \
 && sed -i \
-  -e "s/CHANGE_ME_WITH_AT_LEAST_50_RANDOM_CHARACTERS_BEFORE_USE/$SECRET_KEY/g" \
-  -e "s/CHANGE_ME/$PASSWORD/g" \
+  -e "s|CHANGE_ME_WITH_AT_LEAST_50_RANDOM_CHARACTERS_BEFORE_USE|$SECRET_KEY|g" \
+  -e "s|CHANGE_ME|$PASSWORD|g" \
   config/provider-box.env
 ```
 
