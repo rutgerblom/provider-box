@@ -386,7 +386,7 @@ ensure_netbox_ip_address() {
   local address="${ip}/32"
   local ip_id payload
 
-  ip_id="$(netbox_get_object_id /api/ipam/ip-addresses/ "address=${address}&dns_name=${fqdn}")"
+  ip_id="$(netbox_get_object_id /api/ipam/ip-addresses/ "address=${address}")"
   payload="$(printf '{"address":"%s","dns_name":"%s","status":"active","description":"Imported from %s"}' "${address}" "${fqdn}" "${source}")"
 
   if [[ -z "${ip_id}" ]]; then
