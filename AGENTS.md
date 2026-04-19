@@ -178,6 +178,9 @@ Plain IP values are treated as host addresses and will be imported as `/32` in N
   - Redis
 - Must remain single-node
 
+NetBox requires step-ca for certificate issuance in the current Provider Box design.
+This is an intentional bootstrap dependency, not an accidental runtime coupling.
+
 ### IPAM Seeding Model
 
 - Create one IP address object per unique address (including mask)
