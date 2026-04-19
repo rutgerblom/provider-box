@@ -222,16 +222,20 @@ netbox_api_request() {
   local endpoint="$2"
   local data="${3:-}"
   local auth_header="${4:-}"
+  local response_file http_code response_body
   local curl_args=(
     --silent
     --show-error
-    --fail
     --cacert "${CA_DATA_DIR}/certs/root_ca.crt"
     --resolve "${NETBOX_FQDN}:${NETBOX_PORT}:127.0.0.1"
     -H "Accept: application/json"
     -H "Content-Type: application/json"
     -X "${method}"
+    --write-out "%{http_code}"
   )
+
+  response_file="$(mktemp)"
+  curl_args+=(--output "${response_file}")
 
   if [[ -n "${auth_header}" ]]; then
     curl_args+=(-H "${auth_header}")
@@ -241,7 +245,25 @@ netbox_api_request() {
     curl_args+=(--data "${data}")
   fi
 
-  curl "${curl_args[@]}" "https://${NETBOX_FQDN}:${NETBOX_PORT}${endpoint}"
+  http_code="$(curl "${curl_args[@]}" "https://${NETBOX_FQDN}:${NETBOX_PORT}${endpoint}" || true)"
+  response_body="$(cat "${response_file}")"
+  rm -f "${response_file}"
+
+  case "${http_code}" in
+    2*|3*)
+      printf '%s' "${response_body}"
+      ;;
+    *)
+      echo "NetBox API request failed: ${method} ${endpoint}" >&2
+      if [[ -n "${data}" ]]; then
+        echo "Payload: ${data}" >&2
+      fi
+      if [[ -n "${response_body}" ]]; then
+        echo "Response: ${response_body}" >&2
+      fi
+      fail "NetBox API request returned HTTP ${http_code:-000}"
+      ;;
+  esac
 }
 
 json_first_id() {
@@ -347,8 +369,8 @@ ensure_netbox_service() {
   local port="$4"
   local service_id payload
 
-  service_id="$(netbox_get_object_id /api/ipam/services/ "device_id=${NETBOX_DEVICE_ID}&name=${name}")"
-  payload="$(printf '{"device":%s,"name":"%s","protocol":"%s","ports":[%s],"description":"%s"}' "${NETBOX_DEVICE_ID}" "${name}" "${protocol}" "${port}" "${fqdn}")"
+  service_id="$(netbox_get_object_id /api/ipam/services/ "parent_object_type=dcim.device&parent_object_id=${NETBOX_DEVICE_ID}&name=${name}")"
+  payload="$(printf '{"parent_object_type":"dcim.device","parent_object_id":%s,"name":"%s","protocol":"%s","ports":[%s],"description":"%s"}' "${NETBOX_DEVICE_ID}" "${name}" "${protocol}" "${port}" "${fqdn}")"
 
   if [[ -z "${service_id}" ]]; then
     service_id="$(netbox_create_object /api/ipam/services/ "${payload}")"
