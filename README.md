@@ -17,6 +17,11 @@ The repository is intentionally simple: copy the example configuration, update v
 
 `bootstrap/provider-box.sh` is the entrypoint. It loads service-specific modules from `bootstrap/dns.sh`, `bootstrap/ntp.sh`, `bootstrap/rsyslog.sh`, `bootstrap/ca.sh`, `bootstrap/keycloak.sh`, `bootstrap/netbox.sh`, `bootstrap/s3.sh`, and `bootstrap/sftp.sh`.
 
+## Overview
+
+![Provider Box Overview](docs/images/provider-box-overview.png)
+*Provider Box architecture showing host-based services, containerized services, and external dependencies.*
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)
