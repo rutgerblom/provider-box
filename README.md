@@ -334,7 +334,7 @@ Key files:
   - Admin UI over `https://<SFTP_FQDN>:<SFTP_ADMIN_PORT>`
 - Uses a step-ca-issued certificate for the HTTPS admin UI
 - Stores the SFTPGo admin UI certificate under `SFTP_CERT_DIR`
-- No admin user is created automatically
+- Bootstraps the initial admin user from `SFTP_ADMIN_USER` and `SFTP_ADMIN_PASSWORD`
 
 ---
 
