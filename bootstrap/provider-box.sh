@@ -209,7 +209,7 @@ validate_var_path() {
 }
 
 validate_var_not_placeholder() {
-  [[ "$1" != "CHANGE_ME" ]] || fail "Replace placeholder value before continuing"
+  [[ "$1" != CHANGE_ME* ]] || fail "Replace placeholder value before continuing"
 }
 
 validate_port() {
