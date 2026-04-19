@@ -70,7 +70,7 @@ over:
 
 - Ubuntu or Debian-based host (tested on Debian GNU/Linux 13 “trixie”)
 - Root or `sudo` access
-- Static IP already configured
+- Static IP and prefix already configured
 - Network connectivity from the VCF environment to this host
 - Access to Ubuntu/Debian package repositories
 - `bind9-dnsutils` available for DNS tooling
@@ -190,14 +190,18 @@ The configured Gitleaks hook scans for secrets before commits are created.
 Validation is strict and designed to fail fast before any service is deployed:
 
 - Required variables must be set
-- IP addresses must be valid IPv4 values
+- `HOST_IP` must use valid IPv4 CIDR notation
 - Network allow lists must be valid CIDR ranges
 - FQDN/domain values must be syntactically valid
 - Paths must be absolute where required
 - Placeholder values (e.g. `CHANGE_ME`) are rejected
-- DNS records must follow `<fqdn> <ip>` format
+- DNS records must follow `<fqdn> <ip>` or `<fqdn> <ip/cidr>` format
 
 Environment variables are exported before template rendering so `envsubst` can correctly populate all templates.
+
+`HOST_IP` now uses CIDR notation, for example `192.168.12.121/24`. Provider Box derives the raw host address where services need a plain IPv4 value and keeps the subnet information available for NetBox IPAM import.
+
+`PROVIDER_BOX_FQDN` defines the canonical host identity for the shared Provider Box host IP.
 
 Validation is executed per service based on selected flags.
 
@@ -210,15 +214,19 @@ Validation is executed per service based on selected flags.
 - Acts as the authoritative DNS server for the lab domain
 - Serves the configured domain as a static local zone
 - Generates Provider Box service records automatically
+- Includes `PROVIDER_BOX_FQDN` as the canonical host record for the Provider Box node
 - Uses `config/unbound.records` only for external/custom records
-- Uses `DNS_FQDN` as PTR for `HOST_IP`
+- Uses `DNS_FQDN` as PTR for the Provider Box host IP
 - Uses configured upstream forwarder for external resolution
 
 Record format:
 
 ```text
 <fqdn> <ip>
+<fqdn> <ip/cidr>
 ```
+
+If a record includes CIDR information, Provider Box can derive the surrounding subnet for NetBox, create the prefix object, and import the IP address object with the same mask. If a record uses only a plain IP, Provider Box imports the host address as `/32` without guessing a prefix.
 
 ---
 
@@ -283,7 +291,15 @@ Key files:
 - Uses a step-ca-issued certificate stored under `${NETBOX_DIR}/certs`
 - Bootstraps the initial superuser from `NETBOX_SUPERUSER_*` variables on first start
 - Seeds Provider Box service endpoints into NetBox via the NetBox API after startup
+- Uses `PROVIDER_BOX_FQDN` as the canonical `dns_name` for the shared Provider Box host IP object
+- Stores the built-in Provider Box service FQDNs in that host IP object description
 - Imports DNS records from `config/unbound.records` into NetBox via the API as IP address entries with DNS names
+- Imports prefix objects when `HOST_IP` or `config/unbound.records` entries include CIDR information
+- Uses the actual configured mask for NetBox IP address objects when CIDR is known, for example `192.168.12.121/24`
+- Falls back to `/32` only when subnet information is not available
+- Creates prefix objects separately when CIDR information is available
+- Creates one NetBox IP address object per unique address value; built-in Provider Box service FQDNs share that canonical host IP object instead of creating duplicates
+- This canonical host-IP model is a NetBox seeding behavior only; it does not require Unbound to be deployed
 
 ---
 

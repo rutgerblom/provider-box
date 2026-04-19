@@ -32,22 +32,16 @@ validate_netbox_email() {
 }
 
 build_netbox_dns_seed_block() {
-  local line fqdn ip
-  NETBOX_DNS_RECORDS="${DNS_FQDN}|${HOST_IP}|provider-box
-${CA_FQDN}|${HOST_IP}|provider-box
-${KEYCLOAK_FQDN}|${HOST_IP}|provider-box
-${NETBOX_FQDN}|${HOST_IP}|provider-box
-${S3_FQDN}|${HOST_IP}|provider-box
-${SFTP_FQDN}|${HOST_IP}|provider-box
-${SYSLOG_FQDN}|${HOST_IP}|provider-box
-"
+  local line fqdn address_value
+  NETBOX_DNS_RECORDS=""
 
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     [[ "$line" = \#* ]] && continue
-    fqdn="${line% *}"
-    ip="${line##* }"
-    NETBOX_DNS_RECORDS="${NETBOX_DNS_RECORDS}${fqdn}|${ip}|unbound.records
+    parse_dns_record_line "$line"
+    fqdn="${DNS_RECORD_FQDN}"
+    address_value="${DNS_RECORD_TARGET}"
+    NETBOX_DNS_RECORDS="${NETBOX_DNS_RECORDS}${fqdn}|${address_value}|unbound.records
 "
   done < "${RECORDS_FILE}"
 
@@ -71,12 +65,18 @@ sftp-admin|${SFTP_FQDN}|tcp|${SFTP_ADMIN_PORT}
   export NETBOX_PROVIDER_SERVICES
 }
 
+build_netbox_provider_box_host_description() {
+  NETBOX_PROVIDER_BOX_HOST_DESCRIPTION="Provider Box services: ${DNS_FQDN}, ${CA_FQDN}, ${KEYCLOAK_FQDN}, ${NETBOX_FQDN}, ${S3_FQDN}, ${SFTP_FQDN}, ${SYSLOG_FQDN}"
+  export NETBOX_PROVIDER_BOX_HOST_DESCRIPTION
+}
+
 require_netbox_vars() {
   local var
-  for var in NETBOX_FQDN NETBOX_PORT NETBOX_DIR NETBOX_MEDIA_DIR NETBOX_POSTGRES_DATA_DIR NETBOX_REDIS_DATA_DIR NETBOX_IMAGE NETBOX_POSTGRES_DB NETBOX_POSTGRES_USER NETBOX_POSTGRES_PASSWORD NETBOX_REDIS_PASSWORD NETBOX_SECRET_KEY NETBOX_ALLOWED_HOSTS NETBOX_CSRF_TRUSTED_ORIGINS NETBOX_SUPERUSER_NAME NETBOX_SUPERUSER_EMAIL NETBOX_SUPERUSER_PASSWORD; do
+  for var in PROVIDER_BOX_FQDN NETBOX_FQDN NETBOX_PORT NETBOX_DIR NETBOX_MEDIA_DIR NETBOX_POSTGRES_DATA_DIR NETBOX_REDIS_DATA_DIR NETBOX_IMAGE NETBOX_POSTGRES_DB NETBOX_POSTGRES_USER NETBOX_POSTGRES_PASSWORD NETBOX_REDIS_PASSWORD NETBOX_SECRET_KEY NETBOX_ALLOWED_HOSTS NETBOX_CSRF_TRUSTED_ORIGINS NETBOX_SUPERUSER_NAME NETBOX_SUPERUSER_EMAIL NETBOX_SUPERUSER_PASSWORD; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
+  validate_var_fqdn "${PROVIDER_BOX_FQDN}"
   validate_var_fqdn "${NETBOX_FQDN}"
   validate_var_port "${NETBOX_PORT}"
   validate_var_path "${NETBOX_DIR}"
@@ -161,6 +161,7 @@ render_netbox_stack() {
   install -d -m 0755 "${NETBOX_DIR}" "${NETBOX_DIR}/certs" "${NETBOX_MEDIA_DIR}" "${NETBOX_POSTGRES_DATA_DIR}" "${NETBOX_REDIS_DATA_DIR}"
   build_netbox_dns_seed_block
   build_netbox_service_seed_block
+  build_netbox_provider_box_host_description
   render_template "${TEMPLATE_DIR}/docker-compose.netbox.yml.tpl" "${NETBOX_DIR}/docker-compose.yml"
   DOLLAR='$'
   export DOLLAR
@@ -379,15 +380,64 @@ ensure_netbox_service() {
   fi
 }
 
+ensure_netbox_prefix() {
+  local prefix="$1"
+  local source="$2"
+  local prefix_id payload
+
+  prefix_id="$(netbox_get_object_id /api/ipam/prefixes/ "prefix=${prefix}")"
+  payload="$(printf '{"prefix":"%s","status":"active","description":"Imported from %s"}' "${prefix}" "${source}")"
+
+  if [[ -z "${prefix_id}" ]]; then
+    netbox_create_object /api/ipam/prefixes/ "${payload}" >/dev/null
+  else
+    netbox_patch_object /api/ipam/prefixes/ "${prefix_id}" "${payload}"
+  fi
+}
+
 ensure_netbox_ip_address() {
   local fqdn="$1"
-  local ip="$2"
+  local ip_value="$2"
   local source="$3"
-  local address="${ip}/32"
+  local host_ip address prefix
   local ip_id payload
+
+  host_ip="$(extract_ipv4_from_value "${ip_value}")"
+  if value_has_cidr "${ip_value}"; then
+    prefix="$(cidr_to_network "${ip_value}")"
+    ensure_netbox_prefix "${prefix}" "${source}"
+    address="${ip_value}"
+  else
+    address="${host_ip}/32"
+  fi
 
   ip_id="$(netbox_get_object_id /api/ipam/ip-addresses/ "address=${address}")"
   payload="$(printf '{"address":"%s","dns_name":"%s","status":"active","description":"Imported from %s"}' "${address}" "${fqdn}" "${source}")"
+
+  if [[ -z "${ip_id}" ]]; then
+    netbox_create_object /api/ipam/ip-addresses/ "${payload}" >/dev/null
+  else
+    # Keep a single IP object per unique address value. Multiple FQDNs may
+    # resolve to the same address/mask, so re-runs intentionally leave the
+    # existing object unchanged rather than overwriting its canonical dns_name.
+    return 0
+  fi
+}
+
+ensure_provider_box_host_ip_address() {
+  local address prefix
+  local ip_id payload
+
+  if value_has_cidr "${HOST_IP}"; then
+    prefix="$(cidr_to_network "${HOST_IP}")"
+    ensure_netbox_prefix "${prefix}" "provider-box"
+    address="${HOST_IP}"
+  else
+    address="${HOST_IPV4}/32"
+  fi
+
+  ip_id="$(netbox_get_object_id /api/ipam/ip-addresses/ "address=${address}")"
+  payload="$(printf '{"address":"%s","dns_name":"%s","status":"active","description":"%s"}' "${address}" "${PROVIDER_BOX_FQDN}" "${NETBOX_PROVIDER_BOX_HOST_DESCRIPTION}")"
 
   if [[ -z "${ip_id}" ]]; then
     netbox_create_object /api/ipam/ip-addresses/ "${payload}" >/dev/null
@@ -405,6 +455,7 @@ seed_netbox_via_api() {
   ensure_netbox_device_type
   ensure_netbox_device_role
   ensure_netbox_device
+  ensure_provider_box_host_ip_address
 
   while IFS='|' read -r name fqdn protocol port; do
     [[ -n "${name}" ]] || continue

@@ -126,13 +126,15 @@ RESOLV
 }
 
 build_dns_record_block() {
-  local line fqdn ip
+  local line fqdn ip_value ip
   DNS_RECORD_BLOCK=""
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     [[ "$line" = \#* ]] && continue
-    fqdn="${line% *}"
-    ip="${line##* }"
+    parse_dns_record_line "$line"
+    fqdn="${DNS_RECORD_FQDN}"
+    ip_value="${DNS_RECORD_TARGET}"
+    ip="$(extract_ipv4_from_value "${ip_value}")"
     DNS_RECORD_BLOCK="${DNS_RECORD_BLOCK}local-data: \"${fqdn} A ${ip}\"
 local-data-ptr: \"${ip} ${fqdn}\"
 "
@@ -141,14 +143,15 @@ local-data-ptr: \"${ip} ${fqdn}\"
 }
 
 build_provider_box_dns_block() {
-  PROVIDER_BOX_DNS_BLOCK="local-data: \"${DNS_FQDN} A ${HOST_IP}\"
-local-data: \"${CA_FQDN} A ${HOST_IP}\"
-local-data: \"${KEYCLOAK_FQDN} A ${HOST_IP}\"
-local-data: \"${NETBOX_FQDN} A ${HOST_IP}\"
-local-data: \"${S3_FQDN} A ${HOST_IP}\"
-local-data: \"${SFTP_FQDN} A ${HOST_IP}\"
-local-data: \"${SYSLOG_FQDN} A ${HOST_IP}\"
-local-data-ptr: \"${HOST_IP} ${DNS_FQDN}\"
+  PROVIDER_BOX_DNS_BLOCK="local-data: \"${PROVIDER_BOX_FQDN} A ${HOST_IPV4}\"
+local-data: \"${DNS_FQDN} A ${HOST_IPV4}\"
+local-data: \"${CA_FQDN} A ${HOST_IPV4}\"
+local-data: \"${KEYCLOAK_FQDN} A ${HOST_IPV4}\"
+local-data: \"${NETBOX_FQDN} A ${HOST_IPV4}\"
+local-data: \"${S3_FQDN} A ${HOST_IPV4}\"
+local-data: \"${SFTP_FQDN} A ${HOST_IPV4}\"
+local-data: \"${SYSLOG_FQDN} A ${HOST_IPV4}\"
+local-data-ptr: \"${HOST_IPV4} ${DNS_FQDN}\"
 "
   export PROVIDER_BOX_DNS_BLOCK
 }
@@ -219,19 +222,77 @@ validate_var_port() {
   validate_port "$1" || fail "Invalid TCP port: $1"
 }
 
+extract_ipv4_from_value() {
+  local value="$1"
+  printf '%s' "${value%%/*}"
+}
+
+value_has_cidr() {
+  [[ "$1" == */* ]]
+}
+
+parse_dns_record_line() {
+  local line="$1"
+  DNS_RECORD_FQDN="${line% *}"
+  DNS_RECORD_TARGET="${line##* }"
+}
+
+ipv4_to_int() {
+  local ip="$1"
+  local a b c d
+  IFS='.' read -r a b c d <<< "$ip"
+  printf '%u' "$(( (a << 24) | (b << 16) | (c << 8) | d ))"
+}
+
+int_to_ipv4() {
+  local value="$1"
+  printf '%d.%d.%d.%d' \
+    $(( (value >> 24) & 255 )) \
+    $(( (value >> 16) & 255 )) \
+    $(( (value >> 8) & 255 )) \
+    $(( value & 255 ))
+}
+
+cidr_to_network() {
+  local cidr="$1"
+  local ip="${cidr%/*}"
+  local prefix="${cidr##*/}"
+  local ip_int mask network_int
+
+  ip_int="$(ipv4_to_int "${ip}")"
+  if (( prefix == 0 )); then
+    mask=0
+  else
+    mask=$(( (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF ))
+  fi
+  network_int=$(( ip_int & mask ))
+  printf '%s/%s' "$(int_to_ipv4 "${network_int}")" "${prefix}"
+}
+
+derive_host_ip_fields() {
+  HOST_IPV4="$(extract_ipv4_from_value "${HOST_IP}")"
+  HOST_NETWORK_CIDR="$(cidr_to_network "${HOST_IP}")"
+  export HOST_IPV4 HOST_NETWORK_CIDR
+}
+
 validate_records_file() {
-  local line line_no=0 fqdn ip
+  local line line_no=0 fqdn ip_value
   while IFS= read -r line; do
     line_no=$((line_no + 1))
     [[ -z "$line" || "$line" = \#* ]] && continue
 
     [[ "$line" =~ ^[^[:space:]]+[[:space:]]+[^[:space:]]+$ ]] || \
-      fail "Invalid record format in ${RECORDS_FILE}:${line_no}. Expected: <fqdn> <ip>"
+      fail "Invalid record format in ${RECORDS_FILE}:${line_no}. Expected: <fqdn> <ip> or <fqdn> <ip/cidr>"
 
-    fqdn="${line% *}"
-    ip="${line##* }"
+    parse_dns_record_line "$line"
+    fqdn="${DNS_RECORD_FQDN}"
+    ip_value="${DNS_RECORD_TARGET}"
     validate_fqdn "$fqdn" || fail "Invalid FQDN in ${RECORDS_FILE}:${line_no}: ${fqdn}"
-    validate_ipv4 "$ip" || fail "Invalid IP in ${RECORDS_FILE}:${line_no}: ${ip}"
+    if value_has_cidr "${ip_value}"; then
+      validate_cidr "${ip_value}" || fail "Invalid CIDR in ${RECORDS_FILE}:${line_no}: ${ip_value}"
+    else
+      validate_ipv4 "${ip_value}" || fail "Invalid IP in ${RECORDS_FILE}:${line_no}: ${ip_value}"
+    fi
   done < "$RECORDS_FILE"
 }
 
@@ -241,7 +302,8 @@ require_env_vars() {
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
-  validate_var_ipv4 "${HOST_IP}"
+  validate_var_cidr "${HOST_IP}"
+  derive_host_ip_fields
   validate_var_fqdn "${SEARCH_DOMAIN}"
   validate_var_fqdn "${DNS_FQDN}"
   validate_var_cidr "${ALLOW_NET_1}"
