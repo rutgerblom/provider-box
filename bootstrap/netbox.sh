@@ -369,8 +369,8 @@ ensure_netbox_service() {
   local port="$4"
   local service_id payload
 
-  service_id="$(netbox_get_object_id /api/ipam/services/ "parent_object_type=dcim.device&parent_object_id=${NETBOX_DEVICE_ID}&name=${name}")"
-  payload="$(printf '{"parent_object_type":"dcim.device","parent_object_id":%s,"name":"%s","protocol":"%s","ports":[%s],"description":"%s"}' "${NETBOX_DEVICE_ID}" "${name}" "${protocol}" "${port}" "${fqdn}")"
+  service_id="$(netbox_get_object_id /api/ipam/services/ "device_id=${NETBOX_DEVICE_ID}&name=${name}")"
+  payload="$(printf '{"device":%s,"name":"%s","protocol":"%s","ports":[%s],"description":"%s"}' "${NETBOX_DEVICE_ID}" "${name}" "${protocol}" "${port}" "${fqdn}")"
 
   if [[ -z "${service_id}" ]]; then
     service_id="$(netbox_create_object /api/ipam/services/ "${payload}")"
