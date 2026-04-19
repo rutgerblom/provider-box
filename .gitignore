@@ -1,5 +1,6 @@
 # Local configuration (contains secrets)
 config/provider-box.env
+config/unbound.records
 
 # Editor files
 .vscode/
