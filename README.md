@@ -2,7 +2,7 @@
 
 Provider Box is a lightweight, single-node bootstrap framework for standing up shared infrastructure services on a dedicated provider services node.
 
-It is designed for lab and PoC environments, especially VMware Cloud Foundation (VCF), and includes bootstrap support for:
+It is designed for lab and PoC environments, especially VMware Cloud Foundation (VCF). It includes bootstrap support for:
 
 - Unbound for internal DNS
 - Chrony for internal NTP
@@ -20,6 +20,7 @@ The repository is intentionally simple: copy the example configuration, update v
 ## Table of Contents
 
 - [Quick Start](#quick-start)
+- [Host Assumptions](#host-assumptions)
 - [Choosing Services](#choosing-services)
 - [Configuration Model](#configuration-model)
 - [Service Notes](#service-notes)
@@ -76,7 +77,7 @@ sudo bash bootstrap/provider-box.sh --sftp
 sudo bash bootstrap/provider-box.sh --all
 ```
 
-### 4. Host assumptions
+## Host Assumptions
 
 Provider Box assumes:
 
@@ -109,17 +110,6 @@ Provider Box uses Docker Compose via `docker compose`. On Debian GNU/Linux 13, t
 - SeaweedFS for S3-compatible storage
 - SFTPGo for file transfer
 
-### Service independence
-
-Services are intended to remain independently deployable unless a dependency is explicit and documented.
-
-Examples:
-
-- `--unbound` does not require NetBox
-- `--netbox` does not require Unbound
-- `--s3` and `--sftp` do not require unrelated service configuration
-- step-ca is an intentional dependency for services that use Provider Box-issued TLS certificates
-
 ## Configuration Model
 
 `config/provider-box.env` defines all service configuration.
@@ -136,8 +126,6 @@ Provider Box rejects:
 - invalid absolute-path requirements
 - placeholder secret values such as `CHANGE_ME`
 - malformed DNS record entries
-
-### Host IP and canonical identity
 
 `HOST_IP` uses IPv4 CIDR notation, for example:
 
@@ -281,6 +269,7 @@ This canonical host-IP model is NetBox seeding behavior only. It does not requir
 - Uses a step-ca-issued certificate for the HTTPS admin UI
 - Stores the SFTPGo admin UI certificate under `SFTP_CERT_DIR`
 - Bootstraps the initial admin user from `SFTP_ADMIN_USER` and `SFTP_ADMIN_PASSWORD`
+- Default admin bootstrap applies only when no SFTPGo admin user already exists
 
 The SFTP protocol service remains separate from the HTTPS admin UI configuration.
 
@@ -323,6 +312,15 @@ Over:
 - orchestration complexity
 
 It is opinionated for labs and PoCs, not for HA production deployment patterns.
+
+Services are intended to remain independently deployable unless a dependency is explicit and documented.
+
+Examples:
+
+- `--unbound` does not require NetBox
+- `--netbox` does not require Unbound
+- `--s3` and `--sftp` do not require unrelated service configuration
+- step-ca is an intentional dependency for services that use Provider Box-issued TLS certificates
 
 ## Repository Layout
 
