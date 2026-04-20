@@ -45,31 +45,31 @@ http {
     location = /PROD/COMP/Compatibility/VxrailCompatibilityData.json {
       auth_basic "VCF Offline Depot";
       auth_basic_user_file /etc/nginx/auth/htpasswd;
-      try_files $uri =404;
+      try_files ${DOLLAR}uri =404;
     }
 
     location /PROD/metadata/ {
       auth_basic "VCF Offline Depot";
       auth_basic_user_file /etc/nginx/auth/htpasswd;
       autoindex off;
-      try_files $uri $uri/ =404;
+      try_files ${DOLLAR}uri ${DOLLAR}uri/ =404;
     }
 
     location /PROD/COMP/ {
       auth_basic "VCF Offline Depot";
       auth_basic_user_file /etc/nginx/auth/htpasswd;
       autoindex off;
-      try_files $uri $uri/ =404;
+      try_files ${DOLLAR}uri ${DOLLAR}uri/ =404;
     }
 
     location /PROD/vsan/hcl/ {
       autoindex off;
-      try_files $uri $uri/ =404;
+      try_files ${DOLLAR}uri ${DOLLAR}uri/ =404;
     }
 
     location / {
       autoindex off;
-      try_files $uri $uri/ =404;
+      try_files ${DOLLAR}uri ${DOLLAR}uri/ =404;
     }
   }
 }

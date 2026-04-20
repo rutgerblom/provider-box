@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixes
 - Fix depot certificate issuance failure caused by incorrect directory permissions for step-ca
+- Fix: preserve nginx variables in depot config rendering
 
 ## v0.1.0 - 2026-04-20
 

@@ -158,6 +158,8 @@ render_depot_basic_auth() {
 }
 
 render_depot_stack() {
+  DOLLAR='$'
+  export DOLLAR
   render_template "${TEMPLATE_DIR}/depot-nginx.conf.tpl" "${WORKDIR}/depot/nginx.conf"
   render_template "${TEMPLATE_DIR}/docker-compose.depot.yml.tpl" "${WORKDIR}/depot/docker-compose.yml"
 }
