@@ -10,6 +10,9 @@ All notable changes to this project will be documented in this file.
 ### Improvements
 - Centralize container image versions in provider-box.env
 
+### Fixes
+- Fix depot certificate issuance failure caused by incorrect directory permissions for step-ca
+
 ## v0.1.0 - 2026-04-20
 
 ### Features
