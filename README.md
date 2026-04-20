@@ -269,6 +269,7 @@ Important notes:
 - Requires step-ca to be initialized first
 - Uses a certificate issued by step-ca
 - Exposed at `https://<KEYCLOAK_FQDN>:8443`
+- Seeds an opinionated initial realm from a repository-managed realm import template on first deployment
 
 Key files:
 
@@ -276,6 +277,13 @@ Key files:
 - `keycloak.key` for the private key
 - `keycloak-ca-chain.pem` for VCF OIDC trust import
 - `keycloak-ca-roots.pem` for a roots-only trust bundle
+
+Realm bootstrap:
+
+- Uses a repository-managed realm template derived from a working Keycloak realm export and adapted for Provider Box
+- Imports one opinionated initial realm, one bootstrap group, and one baseline OIDC client for VCF or VCF Operations style integration
+- Can optionally create one bootstrap user when both `KEYCLOAK_BOOTSTRAP_USERNAME` and `KEYCLOAK_BOOTSTRAP_USER_PASSWORD` are set
+- Seeds initial realm state only; it does not provide a generic realm-management framework or mutate existing realms in place
 
 ### NetBox
 

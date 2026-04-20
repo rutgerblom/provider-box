@@ -12,6 +12,8 @@ services:
     volumes:
       - ${KEYCLOAK_DIR}/certs:/opt/keycloak/certs:ro
       - ${KEYCLOAK_DIR}/data:/opt/keycloak/data
+      - ${WORKDIR}/keycloak/import:/opt/keycloak/data/import:ro
     command:
       - start
+      - --import-realm
       - --hostname=https://${KEYCLOAK_FQDN}:8443

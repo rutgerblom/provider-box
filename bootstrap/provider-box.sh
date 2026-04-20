@@ -344,7 +344,7 @@ require_env_vars() {
 
 require_keycloak_vars() {
   local var
-  for var in WORKDIR KEYCLOAK_DIR KEYCLOAK_FQDN KEYCLOAK_ADMIN_USER KEYCLOAK_ADMIN_PASSWORD; do
+  for var in WORKDIR KEYCLOAK_DIR KEYCLOAK_FQDN KEYCLOAK_ADMIN_USER KEYCLOAK_ADMIN_PASSWORD KEYCLOAK_BOOTSTRAP_REALM_NAME KEYCLOAK_BOOTSTRAP_GROUP_NAME KEYCLOAK_BOOTSTRAP_CLIENT_ID KEYCLOAK_BOOTSTRAP_CLIENT_SECRET KEYCLOAK_BOOTSTRAP_CLIENT_REDIRECT_URIS; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
@@ -352,6 +352,10 @@ require_keycloak_vars() {
   validate_var_path "${KEYCLOAK_DIR}"
   validate_var_fqdn "${KEYCLOAK_FQDN}"
   validate_var_not_placeholder "${KEYCLOAK_ADMIN_PASSWORD}"
+  validate_var_not_placeholder "${KEYCLOAK_BOOTSTRAP_REALM_NAME}"
+  validate_var_not_placeholder "${KEYCLOAK_BOOTSTRAP_GROUP_NAME}"
+  validate_var_not_placeholder "${KEYCLOAK_BOOTSTRAP_CLIENT_ID}"
+  validate_var_not_placeholder "${KEYCLOAK_BOOTSTRAP_CLIENT_SECRET}"
 }
 
 require_module_file "${BOOTSTRAP_DIR}/dns.sh"
