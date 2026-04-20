@@ -97,6 +97,9 @@ issue_depot_certificates() {
   local password_file_in_container="/home/step/${CA_PASSWORD_FILE#${CA_DATA_DIR}/}"
 
   install -d -m 0755 "${cert_dir}"
+  if [[ "$(stat -c %u "${cert_dir}")" != "1000" ]]; then
+    chown 1000:1000 "${cert_dir}"
+  fi
 
   rm -f \
     "${cert_dir}/depot.crt" \
@@ -137,6 +140,12 @@ issue_depot_certificates() {
     "${cert_dir}/depot-ca-chain.pem" \
     "${cert_dir}/depot-ca-roots.pem"
   chmod 0600 "${cert_dir}/depot.key"
+  chown 1000:1000 \
+    "${cert_dir}" \
+    "${cert_dir}/depot.crt" \
+    "${cert_dir}/depot.key" \
+    "${cert_dir}/depot-ca-chain.pem" \
+    "${cert_dir}/depot-ca-roots.pem"
 }
 
 render_depot_basic_auth() {
