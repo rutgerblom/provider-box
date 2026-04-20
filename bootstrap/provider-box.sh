@@ -218,6 +218,27 @@ validate_var_not_placeholder() {
   [[ "$1" != CHANGE_ME* ]] || fail "Replace placeholder value before continuing"
 }
 
+validate_ca_password_value() {
+  local value="$1"
+  local normalized="${value,,}"
+
+  [[ -n "${value}" ]] || fail "CA_PASSWORD must not be empty"
+  [[ "${value}" != CHANGE_ME* ]] || fail "Replace placeholder CA_PASSWORD before continuing"
+  [[ "${normalized}" != change-me* ]] || fail "Replace placeholder CA_PASSWORD before continuing"
+}
+
+default_ca_password_file() {
+  printf '%s/secrets/password.txt' "${CA_DATA_DIR}"
+}
+
+resolve_ca_password_file() {
+  if [[ -z "${CA_PASSWORD_FILE:-}" ]]; then
+    CA_PASSWORD_FILE="$(default_ca_password_file)"
+  fi
+
+  export CA_PASSWORD_FILE
+}
+
 validate_port() {
   local port="$1"
   [[ "$port" =~ ^[0-9]+$ ]] || return 1

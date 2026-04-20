@@ -2,13 +2,14 @@
 
 require_keycloak_ca_vars() {
   local var
-  for var in CA_FQDN CA_PORT CA_DATA_DIR CA_PROVISIONER_NAME CA_PASSWORD_FILE; do
+  for var in CA_FQDN CA_PORT CA_DATA_DIR CA_PROVISIONER_NAME; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
   validate_var_fqdn "${CA_FQDN}"
   validate_var_port "${CA_PORT}"
   validate_var_path "${CA_DATA_DIR}"
+  resolve_ca_password_file
   validate_var_path "${CA_PASSWORD_FILE}"
   [[ "${CA_PASSWORD_FILE}" == "${CA_DATA_DIR}"/* ]] || \
     fail "CA_PASSWORD_FILE must be located under CA_DATA_DIR so the step-ca container can read it"
@@ -32,7 +33,7 @@ require_ca_ready_for_keycloak() {
   [[ -f "${CA_DATA_DIR}/certs/intermediate_ca.crt" ]] || \
     fail "Missing step-ca intermediate certificate in ${CA_DATA_DIR}/certs/intermediate_ca.crt. Run --ca first."
   [[ -f "${CA_PASSWORD_FILE}" ]] || \
-    fail "Missing CA password file: ${CA_PASSWORD_FILE}. Run --ca first after creating it."
+    fail "Missing CA password file: ${CA_PASSWORD_FILE}. Run --ca first."
 
   curl --silent --show-error --fail \
     --cacert "${CA_DATA_DIR}/certs/root_ca.crt" \

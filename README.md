@@ -160,6 +160,8 @@ When using `--all --remove`, services are removed in reverse dependency order.
 
 Validation is strict and runs per selected service before deployment changes are made.
 
+For step-ca, no repository-shipped password file is required. Provider Box uses `CA_PASSWORD_FILE` when the file exists, materializes `CA_PASSWORD` into a managed `0600` file when set, or generates a random password automatically under `CA_DATA_DIR` when neither input is provided.
+
 ### General validation behavior
 
 Provider Box rejects:
@@ -250,11 +252,15 @@ If a record includes CIDR information, Provider Box can derive the surrounding s
 Behavior:
 
 - Initializes automatically on first start
-- Generates `CA_PASSWORD_FILE` automatically if it does not already exist
+- Uses `CA_PASSWORD_FILE` as-is when that file already exists
+- Materializes `CA_PASSWORD` to a managed `0600` file when provided
+- Generates a random CA password automatically when no password input is provided
 
 Important notes:
 
+- `CA_PASSWORD` is convenient for lab use, but when set in `provider-box.env` it is still stored there in plaintext.
 - Reinitialization requires deleting the contents of `CA_DATA_DIR`
+- No repository-shipped static CA password file is required
 - The root certificate is available from `/roots.pem`
 
 ### Keycloak
