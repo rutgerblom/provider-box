@@ -2,13 +2,15 @@
 
 require_depot_ca_vars() {
   local var
-  for var in CA_FQDN CA_PORT CA_DATA_DIR CA_PROVISIONER_NAME; do
+  for var in CA_FQDN CA_PORT CA_DATA_DIR CA_PROVISIONER_NAME CA_IMAGE; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
   validate_var_fqdn "${CA_FQDN}"
   validate_var_port "${CA_PORT}"
   validate_var_path "${CA_DATA_DIR}"
+  [[ "${CA_IMAGE}" == *:* ]] || fail "CA_IMAGE must include an explicit image tag"
+  [[ "${CA_IMAGE}" != *:latest ]] || fail "CA_IMAGE must not use the latest tag"
   resolve_ca_password_file
   validate_var_path "${CA_PASSWORD_FILE}"
   [[ "${CA_PASSWORD_FILE}" == "${CA_DATA_DIR}"/* ]] || \
@@ -106,7 +108,7 @@ issue_depot_certificates() {
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
     -v "${cert_dir}:${cert_dir_in_container}" \
-    smallstep/step-ca:0.29.0 \
+    "${CA_IMAGE}" \
     step ca certificate "${DEPOT_FQDN}" "${cert_dir_in_container}/depot-leaf.crt" "${cert_dir_in_container}/depot.key" \
       --san "${DEPOT_FQDN}" \
       --issuer "${CA_PROVISIONER_NAME}" \
@@ -124,7 +126,7 @@ issue_depot_certificates() {
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
     -v "${cert_dir}:${cert_dir_in_container}" \
-    smallstep/step-ca:0.29.0 \
+    "${CA_IMAGE}" \
     step ca roots "${cert_dir_in_container}/depot-ca-roots.pem" \
       --ca-url "https://${CA_FQDN}:${CA_PORT}" \
       --root /home/step/certs/root_ca.crt || \

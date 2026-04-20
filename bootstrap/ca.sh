@@ -2,7 +2,7 @@
 
 require_ca_vars() {
   local var
-  for var in WORKDIR CA_FQDN CA_PORT CA_DATA_DIR CA_NAME CA_PROVISIONER_NAME CA_ENABLE_ACME; do
+  for var in WORKDIR CA_FQDN CA_PORT CA_DATA_DIR CA_NAME CA_PROVISIONER_NAME CA_ENABLE_ACME CA_IMAGE; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
@@ -10,6 +10,8 @@ require_ca_vars() {
   validate_var_fqdn "${CA_FQDN}"
   validate_var_port "${CA_PORT}"
   validate_var_path "${CA_DATA_DIR}"
+  [[ "${CA_IMAGE}" == *:* ]] || fail "CA_IMAGE must include an explicit image tag"
+  [[ "${CA_IMAGE}" != *:latest ]] || fail "CA_IMAGE must not use the latest tag"
   resolve_ca_password_file
   validate_var_path "${CA_PASSWORD_FILE}"
   [[ "${CA_ENABLE_ACME}" == "true" || "${CA_ENABLE_ACME}" == "false" ]] || \

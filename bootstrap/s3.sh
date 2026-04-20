@@ -2,7 +2,7 @@
 
 require_s3_vars() {
   local var
-  for var in WORKDIR S3_FQDN S3_PORT S3_ACCESS_KEY S3_SECRET_KEY S3_DATA_DIR; do
+  for var in WORKDIR S3_FQDN S3_PORT S3_ACCESS_KEY S3_SECRET_KEY S3_DATA_DIR S3_IMAGE; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
@@ -10,6 +10,8 @@ require_s3_vars() {
   validate_var_fqdn "${S3_FQDN}"
   validate_var_port "${S3_PORT}"
   validate_var_path "${S3_DATA_DIR}"
+  [[ "${S3_IMAGE}" == *:* ]] || fail "S3_IMAGE must include an explicit image tag"
+  [[ "${S3_IMAGE}" != *:latest ]] || fail "S3_IMAGE must not use the latest tag"
   validate_var_not_placeholder "${S3_ACCESS_KEY}"
   validate_var_not_placeholder "${S3_SECRET_KEY}"
 }

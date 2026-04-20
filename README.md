@@ -165,6 +165,8 @@ When using `--all --remove`, services are removed in reverse dependency order.
 
 Validation is strict and runs per selected service before deployment changes are made.
 
+Pinned container image versions for Docker-based services are also defined centrally in `config/provider-box.env`.
+
 For step-ca, no repository-shipped password file is required. Provider Box uses `CA_PASSWORD_FILE` when the file exists, materializes `CA_PASSWORD` into a managed `0600` file when set, or generates a random password automatically under `CA_DATA_DIR` when neither input is provided.
 
 ### General validation behavior

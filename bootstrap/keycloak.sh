@@ -2,13 +2,15 @@
 
 require_keycloak_ca_vars() {
   local var
-  for var in CA_FQDN CA_PORT CA_DATA_DIR CA_PROVISIONER_NAME; do
+  for var in CA_FQDN CA_PORT CA_DATA_DIR CA_PROVISIONER_NAME CA_IMAGE; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
   validate_var_fqdn "${CA_FQDN}"
   validate_var_port "${CA_PORT}"
   validate_var_path "${CA_DATA_DIR}"
+  [[ "${CA_IMAGE}" == *:* ]] || fail "CA_IMAGE must include an explicit image tag"
+  [[ "${CA_IMAGE}" != *:latest ]] || fail "CA_IMAGE must not use the latest tag"
   resolve_ca_password_file
   validate_var_path "${CA_PASSWORD_FILE}"
   [[ "${CA_PASSWORD_FILE}" == "${CA_DATA_DIR}"/* ]] || \
@@ -156,7 +158,7 @@ issue_keycloak_certificates() {
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
     -v "${cert_dir}:/out" \
-    smallstep/step-ca:0.29.0 \
+    "${CA_IMAGE}" \
     step ca certificate "${KEYCLOAK_FQDN}" /out/keycloak-leaf.crt /out/keycloak.key \
       --san "${KEYCLOAK_FQDN}" \
       --issuer "${CA_PROVISIONER_NAME}" \
@@ -174,7 +176,7 @@ issue_keycloak_certificates() {
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
     -v "${cert_dir}:/out" \
-    smallstep/step-ca:0.29.0 \
+    "${CA_IMAGE}" \
     step ca roots /out/keycloak-ca-roots.pem \
       --ca-url "https://${CA_FQDN}:${CA_PORT}" \
       --root /home/step/certs/root_ca.crt || \

@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: ${NETBOX_POSTGRES_IMAGE}
     restart: unless-stopped
     environment:
       POSTGRES_DB: "${NETBOX_POSTGRES_DB}"
@@ -15,7 +15,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: ${NETBOX_REDIS_IMAGE}
     restart: unless-stopped
     command:
       - redis-server
@@ -56,7 +56,7 @@ services:
       - ${NETBOX_MEDIA_DIR}:/opt/netbox/netbox/media
 
   netbox-https:
-    image: nginx:1.28-alpine
+    image: ${NETBOX_NGINX_IMAGE}
     restart: unless-stopped
     depends_on:
       - netbox

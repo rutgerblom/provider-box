@@ -1,6 +1,6 @@
 services:
   seaweedfs-s3:
-    image: chrislusf/seaweedfs:4.20
+    image: ${S3_IMAGE}
     restart: unless-stopped
     environment:
       AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY}"

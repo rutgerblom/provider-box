@@ -1,6 +1,6 @@
 services:
   sftpgo:
-    image: drakkan/sftpgo:v2.7.1
+    image: ${SFTPGO_IMAGE}
     restart: unless-stopped
     environment:
       SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN: "true"
