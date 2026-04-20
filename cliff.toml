@@ -1,0 +1,74 @@
+[changelog]
+header = """
+# Changelog
+
+All notable changes to this project will be documented in this file.
+"""
+
+body = """
+{% if version %}
+## {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}
+## Unreleased
+{% endif %}
+
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+{% for commit in commits %}
+- {{ commit.message | upper_first }}{% if commit.scope %} ({{ commit.scope }}){% endif %}
+{% endfor %}
+
+{% endfor %}
+"""
+
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+tag_pattern = "v[0-9]*"
+ignore_tags = ""
+topo_order = false
+sort_commits = "oldest"
+
+[[commit_parsers]]
+message = "^feat"
+group = "Features"
+
+[[commit_parsers]]
+message = "^fix"
+group = "Fixes"
+
+[[commit_parsers]]
+message = "^docs"
+group = "Documentation"
+
+[[commit_parsers]]
+message = "^refactor"
+group = "Refactoring"
+
+[[commit_parsers]]
+message = "^perf"
+group = "Performance"
+
+[[commit_parsers]]
+message = "^chore"
+group = "Chores"
+
+[[commit_parsers]]
+message = ".*"
+group = "Other"
+
+[[commit_preprocessors]]
+pattern = '\(#\d+\)'
+replace = ""
+
+[[commit_preprocessors]]
+pattern = ' +'
+replace = " "
+
+[[link_parsers]]
+pattern = "#(\\d+)"
+href = "https://github.com/rutgerblom/provider-box/issues/$1"

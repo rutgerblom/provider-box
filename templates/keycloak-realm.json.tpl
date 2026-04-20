@@ -17,33 +17,6 @@
       "name": "${KEYCLOAK_BOOTSTRAP_GROUP_NAME}"
     }
   ],
-  "clientScopes": [
-    {
-      "name": "groups",
-      "description": "Group membership for lab OIDC clients",
-      "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "false",
-        "gui.order": ""
-      },
-      "protocolMappers": [
-        {
-          "name": "groups",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-group-membership-mapper",
-          "consentRequired": false,
-          "config": {
-            "full.path": "false",
-            "id.token.claim": "true",
-            "access.token.claim": "true",
-            "userinfo.token.claim": "true",
-            "claim.name": "groups"
-          }
-        }
-      ]
-    }
-  ],
   "clients": [
     {
       "clientId": "${KEYCLOAK_BOOTSTRAP_CLIENT_ID}",
@@ -63,12 +36,26 @@
       "webOrigins": [
         "+"
       ],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "groups"
+          }
+        }
+      ],
       "defaultClientScopes": [
         "web-origins",
         "profile",
         "email",
-        "roles",
-        "groups"
+        "roles"
       ],
       "optionalClientScopes": [
         "address",
