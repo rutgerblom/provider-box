@@ -19,8 +19,9 @@ Agents must preserve:
 - Explicit shell logic over abstraction
 - Template-driven configuration
 - Fail fast on invalid input
-- Keep implementations understandable
-- Prefer reproducibility over flexibility
+- Keep implementations simple and easily understandable
+- Prefer reproducibility over flexibility or convenience
+- This repository provides infrastructure primitives only, not user-facing application platforms
 
 ---
 
@@ -157,6 +158,8 @@ Plain IP values are treated as host addresses and will be imported as `/32` in N
 - Use bind mounts for persistence
 - Keep stacks self-contained per service
 - Do not introduce orchestration layers
+- All container images must be sourced from `provider-box.env`
+- Do not define image versions inside templates or scripts
 
 ---
 
@@ -263,6 +266,7 @@ Cross-service integrations must be additive, not mandatory.
 - No reverse proxies unless already established
 - No silent error handling
 - No floating versions
+- No user-facing application platforms (e.g. CI/CD systems, note-taking tools, general-purpose apps)
 
 ---
 
@@ -294,3 +298,11 @@ If unsure:
 - Choose the simplest solution
 - Stay consistent with existing services
 - Do not change working behavior
+
+---
+
+## Idempotency
+
+- Service bootstrap operations must be idempotent where feasible
+- Re-running a bootstrap must not overwrite or destroy existing state unless explicitly intended
+- Existing resources (e.g. users, data, certificates) must be preserved when present
