@@ -66,7 +66,7 @@ syslog-udp|${SYSLOG_FQDN}|udp|${SYSLOG_PORT}
 step-ca|${CA_FQDN}|tcp|${CA_PORT}
 depot-http|${DEPOT_FQDN}|tcp|${DEPOT_HTTP_PORT}
 depot-https|${DEPOT_FQDN}|tcp|${DEPOT_HTTPS_PORT}
-keycloak|${KEYCLOAK_FQDN}|tcp|8443
+keycloak|${KEYCLOAK_FQDN}|tcp|${KEYCLOAK_PORT:-8443}
 netbox|${NETBOX_FQDN}|tcp|${NETBOX_PORT}
 s3|${S3_FQDN}|tcp|${S3_PORT}
 sftp|${SFTP_FQDN}|tcp|${SFTP_PORT}
@@ -222,9 +222,9 @@ verify_netbox_stack() {
 
 wait_for_netbox_https() {
   local attempt http_code
-  local netbox_login_url="https://${NETBOX_FQDN}:${NETBOX_PORT}/login/"
+  local netbox_url="https://${NETBOX_FQDN}:${NETBOX_PORT}/"
 
-  echo "Waiting for NetBox to become ready at ${netbox_login_url}. First start may take several minutes."
+  echo "Waiting for NetBox to become ready at ${netbox_url}. First start may take several minutes."
 
   for attempt in $(seq 1 120); do
     http_code="$(curl --silent --show-error \
@@ -232,14 +232,14 @@ wait_for_netbox_https() {
       --write-out '%{http_code}' \
       --cacert "${CA_DATA_DIR}/certs/root_ca.crt" \
       --resolve "${NETBOX_FQDN}:${NETBOX_PORT}:127.0.0.1" \
-      "${netbox_login_url}" || true)"
+      "${netbox_url}" || true)"
 
     if [[ -z "${http_code}" ]]; then
       http_code="000"
     fi
 
     case "${http_code}" in
-      200|302)
+      200|301|302)
         return 0
         ;;
     esac
@@ -247,7 +247,7 @@ wait_for_netbox_https() {
     sleep 5
   done
 
-  fail "NetBox did not become ready at ${netbox_login_url} before timeout. Last observed HTTP status: ${http_code}. Check 'docker compose ps' and 'docker compose logs'."
+  fail "NetBox did not become ready at ${netbox_url} before timeout. Last observed HTTP status: ${http_code}. Check 'docker compose ps' and 'docker compose logs'."
 }
 
 netbox_api_request() {

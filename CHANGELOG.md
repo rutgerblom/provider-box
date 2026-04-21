@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Fix preserve nginx variables in depot config rendering
 - Fix depot basic auth by making the managed htpasswd file readable by nginx
 - Harden certificate directory preparation for step-ca-dependent services to avoid permission failures during certificate issuance
+- Add post-start readiness checks for HTTPS services to fail fast when containers start but do not become reachable
 
 ## v0.1.0 - 2026-04-20
 

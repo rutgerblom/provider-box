@@ -197,6 +197,26 @@ issue_keycloak_certificates() {
     "${cert_dir}/keycloak-ca-roots.pem"
 }
 
+wait_for_keycloak_https() {
+  local attempt
+  local keycloak_health_url="https://${KEYCLOAK_FQDN}:${KEYCLOAK_PORT}/health"
+
+  echo "Waiting for Keycloak to become ready at ${keycloak_health_url}."
+
+  for attempt in $(seq 1 45); do
+    if curl --silent --show-error --fail \
+      --cacert "${CA_DATA_DIR}/certs/root_ca.crt" \
+      --resolve "${KEYCLOAK_FQDN}:${KEYCLOAK_PORT}:127.0.0.1" \
+      "${keycloak_health_url}" | grep -q '"status":"UP"'; then
+      echo "Keycloak is ready."
+      return 0
+    fi
+    sleep 2
+  done
+
+  fail "Keycloak failed readiness check at ${keycloak_health_url}. Check logs with: docker compose logs"
+}
+
 do_keycloak() {
   require_keycloak_vars
   require_keycloak_ca_vars
@@ -211,7 +231,8 @@ do_keycloak() {
     docker compose down || true
     docker compose up -d
   )
-  ufw allow 8443/tcp || true
+  ufw allow "${KEYCLOAK_PORT}/tcp" || true
+  wait_for_keycloak_https
 }
 
 remove_keycloak() {

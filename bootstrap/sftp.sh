@@ -120,7 +120,7 @@ issue_sftp_certificates() {
 
 wait_for_sftp_admin_https() {
   local attempt http_code
-  local sftp_admin_url="https://${SFTP_FQDN}:${SFTP_ADMIN_PORT}/web/admin"
+  local sftp_admin_url="https://${SFTP_FQDN}:${SFTP_ADMIN_PORT}/"
 
   echo "Waiting for SFTPGo admin UI to become ready at ${sftp_admin_url}."
 
@@ -130,18 +130,15 @@ wait_for_sftp_admin_https() {
       --write-out '%{http_code}' \
       --cacert "${CA_DATA_DIR}/certs/root_ca.crt" \
       --resolve "${SFTP_FQDN}:${SFTP_ADMIN_PORT}:127.0.0.1" \
+      --location \
       "${sftp_admin_url}" || true)"
 
-    case "${http_code}" in
-      200|301|302)
-        return 0
-        ;;
-    esac
+    [[ "${http_code}" == "200" ]] && return 0
 
     sleep 2
   done
 
-  fail "SFTPGo admin UI did not become ready at ${sftp_admin_url}. Check 'docker compose ps' and 'docker compose logs'."
+  fail "SFTPGo admin UI did not become ready at ${sftp_admin_url}. Last observed HTTP status: ${http_code}. Check 'docker compose ps' and 'docker compose logs'."
 }
 
 do_sftp() {

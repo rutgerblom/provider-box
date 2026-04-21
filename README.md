@@ -299,7 +299,7 @@ Removal behavior:
 - Runs via Docker Compose
 - Requires step-ca to be initialized first
 - Uses a certificate issued by step-ca
-- Exposed at `https://<KEYCLOAK_FQDN>:8443`
+- Exposed at `https://<KEYCLOAK_FQDN>:<KEYCLOAK_PORT>` (`8443` by default)
 - Seeds an opinionated initial realm from a repository-managed realm import template on first deployment
 
 Key files:
