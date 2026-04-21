@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 - Add post-start readiness checks for HTTPS services to fail fast when containers do not become reachable
 - Fix Keycloak readiness checks by probing the user-facing HTTPS endpoint instead of `/health`
 - Fix SFTPGo startup failure caused by SQLite “readonly database” errors by ensuring rw bind-mounted persistent directories are recursively owned by the container runtime user (UID:GID 1000:1000)
+- Fix NetBox PostgreSQL startup failure caused by incorrect ownership on the bind-mounted data directory
 
 ---
 

@@ -189,8 +189,14 @@ issue_netbox_certificates() {
     "${cert_dir}/netbox-ca-roots.pem"
 }
 
+prepare_netbox_directories() {
+  install -d -m 0755 "${NETBOX_DIR}" "${NETBOX_DIR}/certs" "${NETBOX_MEDIA_DIR}" "${NETBOX_REDIS_DATA_DIR}"
+  install -d -m 0700 "${NETBOX_POSTGRES_DATA_DIR}"
+  chown -R 70:70 "${NETBOX_POSTGRES_DATA_DIR}"
+  chmod 0700 "${NETBOX_POSTGRES_DATA_DIR}"
+}
+
 render_netbox_stack() {
-  install -d -m 0755 "${NETBOX_DIR}" "${NETBOX_DIR}/certs" "${NETBOX_MEDIA_DIR}" "${NETBOX_POSTGRES_DATA_DIR}" "${NETBOX_REDIS_DATA_DIR}"
   build_netbox_dns_seed_block
   build_netbox_service_seed_block
   build_netbox_provider_box_host_description
@@ -519,6 +525,7 @@ do_netbox() {
   common_pkgs
   docker_pkgs
   require_ca_ready_for_netbox
+  prepare_netbox_directories
   issue_netbox_certificates
   render_netbox_stack
   (
