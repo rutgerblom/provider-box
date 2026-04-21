@@ -1,6 +1,6 @@
 # Provider Box — Project Context
 
-For AI-assisted development or onboarding, see `PROJECT_CONTEXT.md`.
+This document complements `AGENTS.md`, which defines implementation rules and constraints.
 
 ## Interaction Guidance (for AI assistants)
 
