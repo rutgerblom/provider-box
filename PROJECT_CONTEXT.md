@@ -238,8 +238,20 @@ usability over production-grade hardening
 ## Operational Constraints
 
 - Services are started sequentially, not dependency-aware
-- Service readiness is not guaranteed immediately after container start
-- Operators may need to re-run individual services after initial bootstrap
+- Readiness checks validate service availability after startup
+- A container being "started" does not imply readiness
+- Operators may need to re-run individual services if dependencies were not yet available
+
+### Readiness Model
+
+Provider Box uses service-specific readiness checks to verify that services are reachable on their user-facing interfaces.
+
+- Readiness checks probe the externally exposed HTTPS endpoints
+- Internal health endpoints (e.g. `/health`) are not used for readiness
+- Redirect responses (e.g. 301/302) are considered valid readiness signals
+- A container being "started" does not imply readiness
+
+This ensures that services are validated based on actual usability rather than internal health mechanisms.
 
 ---
 
@@ -271,6 +283,7 @@ Changes should:
 - be explicit and readable
 - avoid unnecessary abstraction
 - avoid implicit behavior (e.g. hidden migrations or automatic state changes)
+- prefer external readiness checks over internal health probes
 
 ---
 
