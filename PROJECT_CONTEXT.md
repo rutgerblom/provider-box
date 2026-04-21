@@ -198,12 +198,13 @@ Runtime-generated files are written to:
 This directory is managed by Provider Box and is separate from both the repository location and persistent service data.
 
 Examples:
-- ~/git/provider-box/depot
-- ~/git/provider-box/step-ca
+- /opt/provider-box/runtime/depot
+- /opt/provider-box/runtime/step-ca
 
 ### Path changes
 
 Default persistent service paths now live under `/opt/provider-box`.
+Default runtime-generated files now live under `/opt/provider-box/runtime`.
 
 Existing installations using the previous `/opt/<service>` layout are not migrated automatically. Path changes must be handled manually or by updating `provider-box.env`.
 
@@ -219,7 +220,7 @@ Existing installations using the previous `/opt/<service>` layout are not migrat
 
 Example:
 - keeps /opt/provider-box/depot/data
-- removes the corresponding runtime directory inside the working directory (e.g. ./depot)
+- removes the corresponding runtime directory (e.g. /opt/provider-box/runtime/depot by default)
 
 ---
 
