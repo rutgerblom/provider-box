@@ -148,13 +148,9 @@ do_sftp() {
   docker_pkgs
   require_ca_ready_for_sftp
   issue_sftp_certificates
-  mkdir -p "${WORKDIR}/sftpgo" "${SFTP_DATA_DIR}" "${SFTP_HOME_DIR}" "${SFTP_CERT_DIR}"
-  if [[ "$(stat -c %u "${SFTP_DATA_DIR}")" != "1000" ]]; then
-    chown 1000:1000 "${SFTP_DATA_DIR}"
-  fi
-  if [[ "$(stat -c %u "${SFTP_HOME_DIR}")" != "1000" ]]; then
-    chown 1000:1000 "${SFTP_HOME_DIR}"
-  fi
+  install -d -m 0755 "${WORKDIR}/sftpgo" "${SFTP_DATA_DIR}" "${SFTP_HOME_DIR}" "${SFTP_CERT_DIR}"
+  chown -R 1000:1000 "${SFTP_DATA_DIR}" "${SFTP_HOME_DIR}"
+  chmod 0755 "${SFTP_DATA_DIR}" "${SFTP_HOME_DIR}"
   render_template "${TEMPLATE_DIR}/docker-compose.sftpgo.yml.tpl" "${WORKDIR}/sftpgo/docker-compose.yml"
   (
     cd "${WORKDIR}/sftpgo"
