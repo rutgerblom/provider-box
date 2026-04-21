@@ -191,9 +191,11 @@ Examples:
 
 Runtime files
 
-Runtime-generated files are created inside the Provider Box working directory (the location where the repository is checked out).
+Runtime-generated files are written to:
 
-The working directory is the root of the Provider Box repository (the directory containing `bootstrap/`, `templates/`, and `config/`).
+/opt/provider-box/runtime/<service>
+
+This directory is managed by Provider Box and is separate from both the repository location and persistent service data.
 
 Examples:
 - ~/git/provider-box/depot
