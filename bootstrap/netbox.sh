@@ -176,8 +176,17 @@ issue_netbox_certificates() {
       --root /home/step/certs/root_ca.crt || \
       fail "Failed to fetch the step-ca root bundle for NetBox."
 
-  chmod 0644 "${cert_dir}/netbox.crt" "${cert_dir}/netbox-ca-chain.pem" "${cert_dir}/netbox-ca-roots.pem"
+  chmod 0644 \
+    "${cert_dir}/netbox.crt" \
+    "${cert_dir}/netbox-ca-chain.pem" \
+    "${cert_dir}/netbox-ca-roots.pem"
   chmod 0600 "${cert_dir}/netbox.key"
+  chown 1000:1000 \
+    "${cert_dir}" \
+    "${cert_dir}/netbox.crt" \
+    "${cert_dir}/netbox.key" \
+    "${cert_dir}/netbox-ca-chain.pem" \
+    "${cert_dir}/netbox-ca-roots.pem"
 }
 
 render_netbox_stack() {

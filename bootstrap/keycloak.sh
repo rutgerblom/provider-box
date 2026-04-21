@@ -144,9 +144,13 @@ require_ca_ready_for_keycloak() {
 
 issue_keycloak_certificates() {
   local cert_dir="${KEYCLOAK_DIR}/certs"
+  local cert_dir_in_container="/etc/provider-box/keycloak-certs"
   local password_file_in_container="/home/step/${CA_PASSWORD_FILE#${CA_DATA_DIR}/}"
 
   install -d -m 0755 "${WORKDIR}/keycloak" "${cert_dir}" "${KEYCLOAK_DIR}/data"
+  if [[ "$(stat -c %u "${cert_dir}")" != "1000" ]]; then
+    chown 1000:1000 "${cert_dir}"
+  fi
 
   rm -f \
     "${cert_dir}/keycloak.crt" \
@@ -157,9 +161,9 @@ issue_keycloak_certificates() {
 
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
-    -v "${cert_dir}:/out" \
+    -v "${cert_dir}:${cert_dir_in_container}" \
     "${CA_IMAGE}" \
-    step ca certificate "${KEYCLOAK_FQDN}" /out/keycloak-leaf.crt /out/keycloak.key \
+    step ca certificate "${KEYCLOAK_FQDN}" "${cert_dir_in_container}/keycloak-leaf.crt" "${cert_dir_in_container}/keycloak.key" \
       --san "${KEYCLOAK_FQDN}" \
       --issuer "${CA_PROVISIONER_NAME}" \
       --provisioner-password-file "${password_file_in_container}" \
@@ -175,9 +179,9 @@ issue_keycloak_certificates() {
 
   docker run --rm --network host \
     -v "${CA_DATA_DIR}:/home/step" \
-    -v "${cert_dir}:/out" \
+    -v "${cert_dir}:${cert_dir_in_container}" \
     "${CA_IMAGE}" \
-    step ca roots /out/keycloak-ca-roots.pem \
+    step ca roots "${cert_dir_in_container}/keycloak-ca-roots.pem" \
       --ca-url "https://${CA_FQDN}:${CA_PORT}" \
       --root /home/step/certs/root_ca.crt || \
       fail "Failed to fetch the step-ca root bundle for Keycloak."

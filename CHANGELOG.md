@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - Fix depot certificate issuance failure caused by incorrect directory permissions for step-ca
 - Fix preserve nginx variables in depot config rendering
 - Fix depot basic auth by making the managed htpasswd file readable by nginx
+- Harden certificate directory preparation for step-ca-dependent services to avoid permission failures during certificate issuance
 
 ## v0.1.0 - 2026-04-20
 
