@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 ### Improvements
 - Centralize container image versions in provider-box.env
 - Align default Keycloak bootstrap username with admin
+- Normalize default persistent service paths under `/opt/provider-box`
 
 ### Fixes
 - Fix depot certificate issuance failure caused by incorrect directory permissions for step-ca
