@@ -356,10 +356,11 @@ This canonical host-IP model is NetBox seeding behavior only. It does not requir
 - Requires step-ca to be initialized first for the HTTPS admin UI certificate
 - Exposes:
   - SFTP endpoint
-  - Admin UI over `https://<SFTP_FQDN>:<SFTP_ADMIN_PORT>`
+  - Client UI over `https://<SFTP_FQDN>:<SFTP_ADMIN_PORT>/web/client/login`
+  - Admin UI over `https://<SFTP_FQDN>:<SFTP_ADMIN_PORT>/web/admin/login`
 - Uses a step-ca-issued certificate for the HTTPS admin UI
-- Stores the SFTPGo admin UI certificate under `SFTP_CERT_DIR`
-- Bootstraps the initial admin user from `SFTP_ADMIN_USER` and `SFTP_ADMIN_PASSWORD`
+- Stores the SFTPGo UI certificate under `SFTP_CERT_DIR`
+- Bootstraps the initial admin UI user from `SFTP_ADMIN_USER` and `SFTP_ADMIN_PASSWORD`
 - Default admin bootstrap applies only when no SFTPGo admin user already exists
 
 The SFTP protocol service remains separate from the HTTPS admin UI configuration.
