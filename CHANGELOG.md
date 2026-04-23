@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 - Be sure to update your `config/provider-box.env`.
 
 ### Fixes
-- Fix certificate handling for step-ca-dependent services to reuse existing certificates and reissue only on identity mismatch or expiration
+- Make certificate handling for step-ca-dependent services identity-aware by reusing valid existing certificates and reissuing only when missing, expired, or mismatched
 
 ## 2026-04-21
 
