@@ -9,7 +9,7 @@
   "verifyEmail": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
-  "resetPasswordAllowed": true,
+  "resetPasswordAllowed": false,
   "editUsernameAllowed": false,
   "bruteForceProtected": false,
   "groups": [
@@ -21,15 +21,17 @@
     {
       "clientId": "${KEYCLOAK_BOOTSTRAP_CLIENT_ID}",
       "name": "${KEYCLOAK_BOOTSTRAP_CLIENT_ID}",
+      "description": "VCF SSO",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
       "secret": "${KEYCLOAK_BOOTSTRAP_CLIENT_SECRET}",
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "frontchannelLogout": true,
+      "alwaysDisplayInConsole": true,
       "redirectUris": [
         ${KEYCLOAK_BOOTSTRAP_CLIENT_REDIRECT_URIS_JSON}
       ],
@@ -64,7 +66,6 @@
         "microprofile-jwt"
       ],
       "attributes": {
-        "pkce.code.challenge.method": "S256",
         "backchannel.logout.session.required": "true",
         "backchannel.logout.revoke.offline.tokens": "false"
       }

@@ -72,7 +72,7 @@ build_keycloak_redirect_uris_json() {
 }
 
 build_keycloak_bootstrap_user_block() {
-  local username_escaped password_escaped group_escaped
+  local username_escaped password_escaped email_escaped group_escaped
 
   if [[ -z "${KEYCLOAK_BOOTSTRAP_USERNAME:-}" && -z "${KEYCLOAK_BOOTSTRAP_USER_PASSWORD:-}" ]]; then
     KEYCLOAK_BOOTSTRAP_USERS_BLOCK=""
@@ -87,9 +87,12 @@ build_keycloak_bootstrap_user_block() {
 
   validate_keycloak_bootstrap_value "${KEYCLOAK_BOOTSTRAP_USERNAME}" "KEYCLOAK_BOOTSTRAP_USERNAME"
   validate_keycloak_bootstrap_value "${KEYCLOAK_BOOTSTRAP_USER_PASSWORD}" "KEYCLOAK_BOOTSTRAP_USER_PASSWORD"
+  validate_keycloak_bootstrap_value "${KEYCLOAK_BOOTSTRAP_USER_EMAIL_DOMAIN:-}" "KEYCLOAK_BOOTSTRAP_USER_EMAIL_DOMAIN"
+  validate_var_fqdn "${KEYCLOAK_BOOTSTRAP_USER_EMAIL_DOMAIN}"
 
   username_escaped="$(json_escape "${KEYCLOAK_BOOTSTRAP_USERNAME}")"
   password_escaped="$(json_escape "${KEYCLOAK_BOOTSTRAP_USER_PASSWORD}")"
+  email_escaped="$(json_escape "${KEYCLOAK_BOOTSTRAP_USERNAME}@${KEYCLOAK_BOOTSTRAP_USER_EMAIL_DOMAIN}")"
   group_escaped="$(json_escape "/${KEYCLOAK_BOOTSTRAP_GROUP_NAME}")"
 
   KEYCLOAK_BOOTSTRAP_USERS_BLOCK=$(cat <<EOF
@@ -97,6 +100,7 @@ build_keycloak_bootstrap_user_block() {
   "users": [
     {
       "username": "${username_escaped}",
+      "email": "${email_escaped}",
       "enabled": true,
       "emailVerified": true,
       "groups": [
