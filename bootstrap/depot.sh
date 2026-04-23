@@ -93,6 +93,8 @@ bootstrap_depot_layout() {
 
 issue_depot_certificates() {
   local cert_dir="${DEPOT_CERT_DIR}"
+  local cert_file="${cert_dir}/depot.crt"
+  local key_file="${cert_dir}/depot.key"
   local cert_dir_in_container="/etc/provider-box/depot-certs"
   local password_file_in_container="/home/step/${CA_PASSWORD_FILE#${CA_DATA_DIR}/}"
 
@@ -101,9 +103,19 @@ issue_depot_certificates() {
     chown 1000:1000 "${cert_dir}"
   fi
 
+  if certificate_matches_dns_identity "${cert_file}" "${key_file}" "${DEPOT_FQDN}"; then
+    echo "Reusing existing depot certificate for ${DEPOT_FQDN}."
+    return
+  fi
+
+  if [[ -f "${cert_file}" || -f "${key_file}" ]]; then
+    echo "Existing depot certificate is not valid for ${DEPOT_FQDN}; issuing replacement."
+  else
+    echo "Issuing depot certificate for ${DEPOT_FQDN}."
+  fi
   rm -f \
-    "${cert_dir}/depot.crt" \
-    "${cert_dir}/depot.key" \
+    "${cert_file}" \
+    "${key_file}" \
     "${cert_dir}/depot-ca-chain.pem" \
     "${cert_dir}/depot-ca-roots.pem" \
     "${cert_dir}/depot-leaf.crt"
@@ -136,14 +148,14 @@ issue_depot_certificates() {
       fail "Failed to fetch the step-ca root bundle for the depot."
 
   chmod 0644 \
-    "${cert_dir}/depot.crt" \
+    "${cert_file}" \
     "${cert_dir}/depot-ca-chain.pem" \
     "${cert_dir}/depot-ca-roots.pem"
-  chmod 0600 "${cert_dir}/depot.key"
+  chmod 0600 "${key_file}"
   chown 1000:1000 \
     "${cert_dir}" \
-    "${cert_dir}/depot.crt" \
-    "${cert_dir}/depot.key" \
+    "${cert_file}" \
+    "${key_file}" \
     "${cert_dir}/depot-ca-chain.pem" \
     "${cert_dir}/depot-ca-roots.pem"
 }

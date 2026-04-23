@@ -87,6 +87,8 @@ require_ca_ready_for_sftp() {
 
 issue_sftp_certificates() {
   local cert_dir="${SFTP_CERT_DIR}"
+  local cert_file="${cert_dir}/sftpgo.crt"
+  local key_file="${cert_dir}/sftpgo.key"
   local cert_dir_in_container="/etc/provider-box/sftpgo-certs"
   local password_file_in_container="/home/step/${CA_PASSWORD_FILE#${CA_DATA_DIR}/}"
 
@@ -95,9 +97,19 @@ issue_sftp_certificates() {
     chown 1000:1000 "${cert_dir}"
   fi
 
+  if certificate_matches_dns_identity "${cert_file}" "${key_file}" "${SFTP_FQDN}"; then
+    echo "Reusing existing SFTPGo certificate for ${SFTP_FQDN}."
+    return
+  fi
+
+  if [[ -f "${cert_file}" || -f "${key_file}" ]]; then
+    echo "Existing SFTPGo certificate is not valid for ${SFTP_FQDN}; issuing replacement."
+  else
+    echo "Issuing SFTPGo certificate for ${SFTP_FQDN}."
+  fi
   rm -f \
-    "${cert_dir}/sftpgo.crt" \
-    "${cert_dir}/sftpgo.key" \
+    "${cert_file}" \
+    "${key_file}" \
     "${cert_dir}/sftpgo-ca-chain.pem" \
     "${cert_dir}/sftpgo-ca-roots.pem" \
     "${cert_dir}/sftpgo-leaf.crt"
@@ -129,12 +141,12 @@ issue_sftp_certificates() {
       --root /home/step/certs/root_ca.crt || \
       fail "Failed to fetch the step-ca root bundle for SFTPGo."
 
-  chmod 0644 "${cert_dir}/sftpgo.crt" "${cert_dir}/sftpgo-ca-chain.pem" "${cert_dir}/sftpgo-ca-roots.pem"
-  chmod 0600 "${cert_dir}/sftpgo.key"
+  chmod 0644 "${cert_file}" "${cert_dir}/sftpgo-ca-chain.pem" "${cert_dir}/sftpgo-ca-roots.pem"
+  chmod 0600 "${key_file}"
   chown 1000:1000 \
     "${cert_dir}" \
-    "${cert_dir}/sftpgo.crt" \
-    "${cert_dir}/sftpgo.key" \
+    "${cert_file}" \
+    "${key_file}" \
     "${cert_dir}/sftpgo-ca-chain.pem" \
     "${cert_dir}/sftpgo-ca-roots.pem"
 }

@@ -148,6 +148,8 @@ require_ca_ready_for_keycloak() {
 
 issue_keycloak_certificates() {
   local cert_dir="${KEYCLOAK_DIR}/certs"
+  local cert_file="${cert_dir}/keycloak.crt"
+  local key_file="${cert_dir}/keycloak.key"
   local cert_dir_in_container="/etc/provider-box/keycloak-certs"
   local password_file_in_container="/home/step/${CA_PASSWORD_FILE#${CA_DATA_DIR}/}"
 
@@ -156,9 +158,20 @@ issue_keycloak_certificates() {
     chown 1000:1000 "${cert_dir}"
   fi
 
+  if certificate_matches_dns_identity "${cert_file}" "${key_file}" "${KEYCLOAK_FQDN}"; then
+    echo "Reusing existing Keycloak certificate for ${KEYCLOAK_FQDN}."
+    chown 1000:1000 "${KEYCLOAK_DIR}/data"
+    return
+  fi
+
+  if [[ -f "${cert_file}" || -f "${key_file}" ]]; then
+    echo "Existing Keycloak certificate is not valid for ${KEYCLOAK_FQDN}; issuing replacement."
+  else
+    echo "Issuing Keycloak certificate for ${KEYCLOAK_FQDN}."
+  fi
   rm -f \
-    "${cert_dir}/keycloak.crt" \
-    "${cert_dir}/keycloak.key" \
+    "${cert_file}" \
+    "${key_file}" \
     "${cert_dir}/keycloak-ca-chain.pem" \
     "${cert_dir}/keycloak-ca-roots.pem" \
     "${cert_dir}/keycloak-leaf.crt"
@@ -190,13 +203,13 @@ issue_keycloak_certificates() {
       --root /home/step/certs/root_ca.crt || \
       fail "Failed to fetch the step-ca root bundle for Keycloak."
 
-  chmod 0644 "${cert_dir}/keycloak.crt" "${cert_dir}/keycloak-ca-chain.pem" "${cert_dir}/keycloak-ca-roots.pem"
-  chmod 0600 "${cert_dir}/keycloak.key"
+  chmod 0644 "${cert_file}" "${cert_dir}/keycloak-ca-chain.pem" "${cert_dir}/keycloak-ca-roots.pem"
+  chmod 0600 "${key_file}"
   chown 1000:1000 \
     "${KEYCLOAK_DIR}/data" \
     "${cert_dir}" \
-    "${cert_dir}/keycloak.crt" \
-    "${cert_dir}/keycloak.key" \
+    "${cert_file}" \
+    "${key_file}" \
     "${cert_dir}/keycloak-ca-chain.pem" \
     "${cert_dir}/keycloak-ca-roots.pem"
 }

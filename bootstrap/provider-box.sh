@@ -252,6 +252,22 @@ validate_var_port() {
   validate_port "$1" || fail "Invalid TCP port: $1"
 }
 
+certificate_matches_dns_identity() {
+  local cert_file="$1"
+  local key_file="$2"
+  local fqdn="$3"
+  local sans
+
+  [[ -f "${cert_file}" && -f "${key_file}" ]] || return 1
+  openssl x509 -in "${cert_file}" -noout -checkend 0 >/dev/null 2>&1 || return 1
+  cmp -s \
+    <(openssl x509 -in "${cert_file}" -noout -pubkey 2>/dev/null) \
+    <(openssl pkey -in "${key_file}" -pubout 2>/dev/null) || return 1
+
+  sans="$(openssl x509 -in "${cert_file}" -noout -ext subjectAltName 2>/dev/null || true)"
+  printf '%s\n' "${sans}" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -Fxq "DNS:${fqdn}"
+}
+
 extract_ipv4_from_value() {
   local value="$1"
   printf '%s' "${value%%/*}"
