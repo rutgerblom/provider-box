@@ -313,8 +313,11 @@ Key files:
 
 - `keycloak.crt` for the Keycloak HTTPS certificate file
 - `keycloak.key` for the private key
-- `keycloak-ca-chain.pem` for VCF OIDC trust import
-- `keycloak-ca-roots.pem` for a roots-only trust bundle
+- `keycloak-ca-chain.pem` for CA chain material
+- `keycloak-ca-roots.pem` for roots-only trust use cases
+- `keycloak-full-chain.pem` for VCF SSO certificate-chain upload
+
+VCF SSO expects the full IdP TLS chain in leaf, intermediate, root order. Use `keycloak-full-chain.pem` for that upload field.
 
 Realm bootstrap:
 

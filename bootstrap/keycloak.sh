@@ -150,9 +150,21 @@ write_keycloak_full_chain_bundle() {
   local cert_dir="$1"
   local cert_file="${cert_dir}/keycloak.crt"
   local full_chain_file="${cert_dir}/keycloak-full-chain.pem"
+  local cert_count
 
-  cat "${cert_file}" "${CA_DATA_DIR}/certs/root_ca.crt" > "${full_chain_file}" || \
+  awk '
+    /-----BEGIN CERTIFICATE-----/ { in_cert = 1 }
+    in_cert { print }
+    /-----END CERTIFICATE-----/ { exit }
+  ' "${cert_file}" > "${full_chain_file}" || \
+    fail "Failed to extract the Keycloak leaf certificate."
+
+  cat "${CA_DATA_DIR}/certs/intermediate_ca.crt" "${CA_DATA_DIR}/certs/root_ca.crt" >> "${full_chain_file}" || \
     fail "Failed to build the Keycloak full certificate chain bundle."
+
+  cert_count="$(grep -c "BEGIN CERTIFICATE" "${full_chain_file}")"
+  [[ "${cert_count}" -eq 3 ]] || \
+    fail "Keycloak full certificate chain bundle must contain exactly 3 certificates."
 
   chmod 0644 "${full_chain_file}"
   chown 1000:1000 "${full_chain_file}"
