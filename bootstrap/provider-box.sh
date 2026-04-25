@@ -344,23 +344,54 @@ validate_records_file() {
   done < "$RECORDS_FILE"
 }
 
-require_env_vars() {
+require_common_vars() {
   local var
-  for var in HOST_IP SEARCH_DOMAIN DNS_FQDN ALLOW_NET_1 ALLOW_NET_2 ALLOW_NET_3 UNBOUND_FORWARDER CHRONY_SERVER_1 CHRONY_SERVER_2 CHRONY_SERVER_3; do
+  for var in HOST_IP SEARCH_DOMAIN; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
   validate_var_cidr "${HOST_IP}"
   derive_host_ip_fields
   validate_var_fqdn "${SEARCH_DOMAIN}"
-  validate_var_fqdn "${DNS_FQDN}"
+}
+
+require_allow_net_vars() {
+  local var
+  for var in ALLOW_NET_1 ALLOW_NET_2 ALLOW_NET_3; do
+    [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
+  done
+
   validate_var_cidr "${ALLOW_NET_1}"
   validate_var_cidr "${ALLOW_NET_2}"
   validate_var_cidr "${ALLOW_NET_3}"
+}
+
+require_dns_vars() {
+  local var
+  for var in DNS_FQDN UNBOUND_FORWARDER; do
+    [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
+  done
+
+  validate_var_fqdn "${DNS_FQDN}"
   validate_var_ipv4 "${UNBOUND_FORWARDER}"
+}
+
+require_ntp_vars() {
+  local var
+  for var in CHRONY_SERVER_1 CHRONY_SERVER_2 CHRONY_SERVER_3; do
+    [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
+  done
+
   validate_var_fqdn "${CHRONY_SERVER_1}"
   validate_var_fqdn "${CHRONY_SERVER_2}"
   validate_var_fqdn "${CHRONY_SERVER_3}"
+}
+
+require_env_vars() {
+  require_common_vars
+  require_allow_net_vars
+  require_dns_vars
+  require_ntp_vars
 }
 
 require_keycloak_vars() {
@@ -455,7 +486,9 @@ case "${TARGET_SERVICE}" in
     if [[ "${REMOVE_MODE}" -eq 1 ]]; then
       fail "Removal is not implemented for --unbound"
     fi
-    require_env_vars
+    require_common_vars
+    require_allow_net_vars
+    require_dns_vars
     require_records_file
     do_unbound
     ;;
@@ -465,7 +498,9 @@ case "${TARGET_SERVICE}" in
     if [[ "${REMOVE_MODE}" -eq 1 ]]; then
       fail "Removal is not implemented for --ntp"
     fi
-    require_env_vars
+    require_common_vars
+    require_allow_net_vars
+    require_ntp_vars
     do_ntp
     ;;
   --rsyslog)
@@ -474,7 +509,7 @@ case "${TARGET_SERVICE}" in
     if [[ "${REMOVE_MODE}" -eq 1 ]]; then
       fail "Removal is not implemented for --rsyslog"
     fi
-    require_env_vars
+    require_common_vars
     do_rsyslog
     ;;
   --ca)
@@ -483,7 +518,7 @@ case "${TARGET_SERVICE}" in
     if [[ "${REMOVE_MODE}" -eq 1 ]]; then
       remove_ca
     else
-      require_env_vars
+      require_common_vars
       do_ca
     fi
     ;;
@@ -493,7 +528,7 @@ case "${TARGET_SERVICE}" in
     if [[ "${REMOVE_MODE}" -eq 1 ]]; then
       remove_depot
     else
-      require_env_vars
+      require_common_vars
       do_depot
     fi
     ;;
@@ -503,7 +538,7 @@ case "${TARGET_SERVICE}" in
     if [[ "${REMOVE_MODE}" -eq 1 ]]; then
       remove_keycloak
     else
-      require_env_vars
+      require_common_vars
       do_keycloak
     fi
     ;;
@@ -513,7 +548,7 @@ case "${TARGET_SERVICE}" in
     if [[ "${REMOVE_MODE}" -eq 1 ]]; then
       remove_netbox
     else
-      require_env_vars
+      require_common_vars
       do_netbox
     fi
     ;;
@@ -523,7 +558,7 @@ case "${TARGET_SERVICE}" in
     if [[ "${REMOVE_MODE}" -eq 1 ]]; then
       remove_s3
     else
-      require_env_vars
+      require_common_vars
       do_s3
     fi
     ;;
@@ -533,7 +568,7 @@ case "${TARGET_SERVICE}" in
     if [[ "${REMOVE_MODE}" -eq 1 ]]; then
       remove_sftp
     else
-      require_env_vars
+      require_common_vars
       do_sftp
     fi
     ;;

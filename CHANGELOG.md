@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ## 2026-04-25
 
+### Improvements
+- Make shared bootstrap validation service-scoped so unrelated DNS/NTP settings do not block individual services
+
 ### Fixes
 - Fix CIDR validation to reject invalid IPv4 prefix lengths and make DNS record parsing handle whitespace consistently
 
