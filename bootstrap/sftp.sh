@@ -85,6 +85,21 @@ require_ca_ready_for_sftp() {
     fail "step-ca is not reachable on https://${CA_FQDN}:${CA_PORT}. Run --ca first and ensure the CA is healthy."
 }
 
+normalize_sftp_certificate_permissions() {
+  local cert_dir="$1"
+  local cert_file="${cert_dir}/sftpgo.crt"
+  local key_file="${cert_dir}/sftpgo.key"
+  local chain_file="${cert_dir}/sftpgo-ca-chain.pem"
+  local roots_file="${cert_dir}/sftpgo-ca-roots.pem"
+
+  chmod 0755 "${cert_dir}"
+  chown 1000:1000 "${cert_dir}"
+  [[ -f "${cert_file}" ]] && chmod 0644 "${cert_file}" && chown 1000:1000 "${cert_file}"
+  [[ -f "${chain_file}" ]] && chmod 0644 "${chain_file}" && chown 1000:1000 "${chain_file}"
+  [[ -f "${roots_file}" ]] && chmod 0644 "${roots_file}" && chown 1000:1000 "${roots_file}"
+  [[ -f "${key_file}" ]] && chmod 0600 "${key_file}" && chown 1000:1000 "${key_file}"
+}
+
 issue_sftp_certificates() {
   local cert_dir="${SFTP_CERT_DIR}"
   local cert_file="${cert_dir}/sftpgo.crt"
@@ -99,6 +114,7 @@ issue_sftp_certificates() {
 
   if certificate_matches_dns_identity "${cert_file}" "${key_file}" "${SFTP_FQDN}"; then
     echo "Reusing existing SFTPGo certificate for ${SFTP_FQDN}."
+    normalize_sftp_certificate_permissions "${cert_dir}"
     return
   fi
 
@@ -141,14 +157,7 @@ issue_sftp_certificates() {
       --root /home/step/certs/root_ca.crt || \
       fail "Failed to fetch the step-ca root bundle for SFTPGo."
 
-  chmod 0644 "${cert_file}" "${cert_dir}/sftpgo-ca-chain.pem" "${cert_dir}/sftpgo-ca-roots.pem"
-  chmod 0600 "${key_file}"
-  chown 1000:1000 \
-    "${cert_dir}" \
-    "${cert_file}" \
-    "${key_file}" \
-    "${cert_dir}/sftpgo-ca-chain.pem" \
-    "${cert_dir}/sftpgo-ca-roots.pem"
+  normalize_sftp_certificate_permissions "${cert_dir}"
 }
 
 wait_for_sftp_admin_https() {

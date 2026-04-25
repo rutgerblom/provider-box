@@ -158,6 +158,23 @@ write_keycloak_full_chain_bundle() {
   chown 1000:1000 "${full_chain_file}"
 }
 
+normalize_keycloak_certificate_permissions() {
+  local cert_dir="$1"
+  local cert_file="${cert_dir}/keycloak.crt"
+  local key_file="${cert_dir}/keycloak.key"
+  local chain_file="${cert_dir}/keycloak-ca-chain.pem"
+  local roots_file="${cert_dir}/keycloak-ca-roots.pem"
+  local full_chain_file="${cert_dir}/keycloak-full-chain.pem"
+
+  chmod 0755 "${cert_dir}"
+  chown 1000:1000 "${cert_dir}"
+  [[ -f "${cert_file}" ]] && chmod 0644 "${cert_file}" && chown 1000:1000 "${cert_file}"
+  [[ -f "${chain_file}" ]] && chmod 0644 "${chain_file}" && chown 1000:1000 "${chain_file}"
+  [[ -f "${roots_file}" ]] && chmod 0644 "${roots_file}" && chown 1000:1000 "${roots_file}"
+  [[ -f "${full_chain_file}" ]] && chmod 0644 "${full_chain_file}" && chown 1000:1000 "${full_chain_file}"
+  [[ -f "${key_file}" ]] && chmod 0600 "${key_file}" && chown 1000:1000 "${key_file}"
+}
+
 issue_keycloak_certificates() {
   local cert_dir="${KEYCLOAK_DIR}/certs"
   local cert_file="${cert_dir}/keycloak.crt"
@@ -173,6 +190,7 @@ issue_keycloak_certificates() {
   if certificate_matches_dns_identity "${cert_file}" "${key_file}" "${KEYCLOAK_FQDN}"; then
     echo "Reusing existing Keycloak certificate for ${KEYCLOAK_FQDN}."
     write_keycloak_full_chain_bundle "${cert_dir}"
+    normalize_keycloak_certificate_permissions "${cert_dir}"
     chown 1000:1000 "${KEYCLOAK_DIR}/data"
     return
   fi
@@ -218,16 +236,8 @@ issue_keycloak_certificates() {
       --root /home/step/certs/root_ca.crt || \
       fail "Failed to fetch the step-ca root bundle for Keycloak."
 
-  chmod 0644 "${cert_file}" "${cert_dir}/keycloak-ca-chain.pem" "${cert_dir}/keycloak-ca-roots.pem" "${cert_dir}/keycloak-full-chain.pem"
-  chmod 0600 "${key_file}"
-  chown 1000:1000 \
-    "${KEYCLOAK_DIR}/data" \
-    "${cert_dir}" \
-    "${cert_file}" \
-    "${key_file}" \
-    "${cert_dir}/keycloak-ca-chain.pem" \
-    "${cert_dir}/keycloak-ca-roots.pem" \
-    "${cert_dir}/keycloak-full-chain.pem"
+  normalize_keycloak_certificate_permissions "${cert_dir}"
+  chown 1000:1000 "${KEYCLOAK_DIR}/data"
 }
 
 wait_for_keycloak_https() {

@@ -148,6 +148,21 @@ require_ca_ready_for_netbox() {
     fail "step-ca is not reachable on https://${CA_FQDN}:${CA_PORT}. Run --ca first and ensure the CA is healthy."
 }
 
+normalize_netbox_certificate_permissions() {
+  local cert_dir="$1"
+  local cert_file="${cert_dir}/netbox.crt"
+  local key_file="${cert_dir}/netbox.key"
+  local chain_file="${cert_dir}/netbox-ca-chain.pem"
+  local roots_file="${cert_dir}/netbox-ca-roots.pem"
+
+  chmod 0755 "${cert_dir}"
+  chown 1000:1000 "${cert_dir}"
+  [[ -f "${cert_file}" ]] && chmod 0644 "${cert_file}" && chown 1000:1000 "${cert_file}"
+  [[ -f "${chain_file}" ]] && chmod 0644 "${chain_file}" && chown 1000:1000 "${chain_file}"
+  [[ -f "${roots_file}" ]] && chmod 0644 "${roots_file}" && chown 1000:1000 "${roots_file}"
+  [[ -f "${key_file}" ]] && chmod 0600 "${key_file}" && chown 1000:1000 "${key_file}"
+}
+
 issue_netbox_certificates() {
   local cert_dir="${NETBOX_DIR}/certs"
   local cert_file="${cert_dir}/netbox.crt"
@@ -162,6 +177,7 @@ issue_netbox_certificates() {
 
   if certificate_matches_dns_identity "${cert_file}" "${key_file}" "${NETBOX_FQDN}"; then
     echo "Reusing existing NetBox certificate for ${NETBOX_FQDN}."
+    normalize_netbox_certificate_permissions "${cert_dir}"
     return
   fi
 
@@ -204,17 +220,7 @@ issue_netbox_certificates() {
       --root /home/step/certs/root_ca.crt || \
       fail "Failed to fetch the step-ca root bundle for NetBox."
 
-  chmod 0644 \
-    "${cert_file}" \
-    "${cert_dir}/netbox-ca-chain.pem" \
-    "${cert_dir}/netbox-ca-roots.pem"
-  chmod 0600 "${key_file}"
-  chown 1000:1000 \
-    "${cert_dir}" \
-    "${cert_file}" \
-    "${key_file}" \
-    "${cert_dir}/netbox-ca-chain.pem" \
-    "${cert_dir}/netbox-ca-roots.pem"
+  normalize_netbox_certificate_permissions "${cert_dir}"
 }
 
 prepare_netbox_directories() {

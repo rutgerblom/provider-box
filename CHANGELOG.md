@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixes
 - Fix CIDR validation to reject invalid IPv4 prefix lengths and make DNS record parsing handle whitespace consistently
+- Normalize certificate artifact ownership and permissions when reusing existing step-ca-issued service certificates
 
 ## 2026-04-24
 
