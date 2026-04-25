@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 2026-04-25
+
+### Fixes
+- Fix CIDR validation to reject invalid IPv4 prefix lengths and make DNS record parsing handle whitespace consistently
+
 ## 2026-04-24
 
 ### Fixes

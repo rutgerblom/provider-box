@@ -188,7 +188,8 @@ validate_cidr() {
   local prefix="${cidr##*/}"
   [[ "$cidr" == */* ]] || return 1
   validate_ipv4 "$ip" || return 1
-  [[ "$prefix" =~ ^[0-9]{1,2}$|^3[0-2]$ ]] || return 1
+  [[ "$prefix" =~ ^[0-9]+$ ]] || return 1
+  (( 10#${prefix} >= 0 && 10#${prefix} <= 32 )) || return 1
 }
 
 validate_fqdn() {
@@ -279,8 +280,10 @@ value_has_cidr() {
 
 parse_dns_record_line() {
   local line="$1"
-  DNS_RECORD_FQDN="${line% *}"
-  DNS_RECORD_TARGET="${line##* }"
+  local extra
+
+  read -r DNS_RECORD_FQDN DNS_RECORD_TARGET extra <<< "$line"
+  [[ -n "${DNS_RECORD_FQDN}" && -n "${DNS_RECORD_TARGET}" && -z "${extra}" ]]
 }
 
 ipv4_to_int() {
@@ -327,10 +330,9 @@ validate_records_file() {
     line_no=$((line_no + 1))
     [[ -z "$line" || "$line" = \#* ]] && continue
 
-    [[ "$line" =~ ^[^[:space:]]+[[:space:]]+[^[:space:]]+$ ]] || \
+    parse_dns_record_line "$line" || \
       fail "Invalid record format in ${RECORDS_FILE}:${line_no}. Expected: <fqdn> <ip> or <fqdn> <ip/cidr>"
 
-    parse_dns_record_line "$line"
     fqdn="${DNS_RECORD_FQDN}"
     ip_value="${DNS_RECORD_TARGET}"
     validate_fqdn "$fqdn" || fail "Invalid FQDN in ${RECORDS_FILE}:${line_no}: ${fqdn}"
