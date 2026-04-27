@@ -2,13 +2,14 @@
 
 require_keycloak_ca_vars() {
   local var
-  for var in CA_FQDN CA_PORT CA_DATA_DIR CA_PROVISIONER_NAME CA_IMAGE; do
+  for var in CA_FQDN CA_PORT CA_DATA_DIR CA_PROVISIONER_NAME SERVICE_CERT_DURATION CA_IMAGE; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
   validate_var_fqdn "${CA_FQDN}"
   validate_var_port "${CA_PORT}"
   validate_var_path "${CA_DATA_DIR}"
+  validate_service_cert_duration "${SERVICE_CERT_DURATION}"
   [[ "${CA_IMAGE}" == *:* ]] || fail "CA_IMAGE must include an explicit image tag"
   [[ "${CA_IMAGE}" != *:latest ]] || fail "CA_IMAGE must not use the latest tag"
   resolve_ca_password_file
@@ -226,6 +227,7 @@ issue_keycloak_certificates() {
     "${CA_IMAGE}" \
     step ca certificate "${KEYCLOAK_FQDN}" "${cert_dir_in_container}/keycloak-leaf.crt" "${cert_dir_in_container}/keycloak.key" \
       --san "${KEYCLOAK_FQDN}" \
+      --not-after "${SERVICE_CERT_DURATION}" \
       --issuer "${CA_PROVISIONER_NAME}" \
       --provisioner-password-file "${password_file_in_container}" \
       --ca-url "https://${CA_FQDN}:${CA_PORT}" \

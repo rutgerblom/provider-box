@@ -262,6 +262,7 @@ If a record includes CIDR information, Provider Box can derive the surrounding s
 - Acts as the internal PKI for Provider Box services
 - Exposed at `https://<CA_FQDN>:<CA_PORT>`
 - Persists data under `CA_DATA_DIR`
+- Allows service certificates up to `SERVICE_CERT_DURATION` (`8760h` by default)
 
 Behavior:
 
@@ -269,6 +270,7 @@ Behavior:
 - Uses `CA_PASSWORD_FILE` as-is when that file already exists
 - Materializes `CA_PASSWORD` to a managed `0600` file when provided
 - Generates a random CA password automatically when no password input is provided
+- Running `--ca` configures the provisioner default and maximum X.509 certificate duration from `SERVICE_CERT_DURATION`
 
 Important notes:
 

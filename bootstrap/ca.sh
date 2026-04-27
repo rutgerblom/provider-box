@@ -2,7 +2,7 @@
 
 require_ca_vars() {
   local var
-  for var in WORKDIR CA_FQDN CA_PORT CA_DATA_DIR CA_NAME CA_PROVISIONER_NAME CA_ENABLE_ACME CA_IMAGE; do
+  for var in WORKDIR CA_FQDN CA_PORT CA_DATA_DIR CA_NAME CA_PROVISIONER_NAME SERVICE_CERT_DURATION CA_ENABLE_ACME CA_IMAGE; do
     [[ -n "${!var:-}" ]] || fail "Missing required variable: $var"
   done
 
@@ -10,6 +10,7 @@ require_ca_vars() {
   validate_var_fqdn "${CA_FQDN}"
   validate_var_port "${CA_PORT}"
   validate_var_path "${CA_DATA_DIR}"
+  validate_service_cert_duration "${SERVICE_CERT_DURATION}"
   [[ "${CA_IMAGE}" == *:* ]] || fail "CA_IMAGE must include an explicit image tag"
   [[ "${CA_IMAGE}" != *:latest ]] || fail "CA_IMAGE must not use the latest tag"
   resolve_ca_password_file
@@ -44,6 +45,32 @@ normalize_ca_password_files() {
     chown 1000:1000 "${file}"
     chmod 0600 "${file}"
   done
+}
+
+configure_ca_service_cert_duration() {
+  local ca_config="${CA_DATA_DIR}/config/ca.json"
+  local attempt
+
+  for attempt in $(seq 1 30); do
+    [[ -f "${ca_config}" ]] && break
+    sleep 2
+  done
+
+  [[ -f "${ca_config}" ]] || \
+    fail "step-ca configuration was not created at ${ca_config}."
+
+  echo "Configuring step-ca service certificate duration: ${SERVICE_CERT_DURATION}"
+  docker run --rm \
+    --user 1000:1000 \
+    -v "${CA_DATA_DIR}:/home/step" \
+    "${CA_IMAGE}" \
+    step ca provisioner update "${CA_PROVISIONER_NAME}" \
+      --x509-default-dur="${SERVICE_CERT_DURATION}" \
+      --x509-max-dur="${SERVICE_CERT_DURATION}" \
+      --ca-config /home/step/config/ca.json || \
+    fail "Failed to configure step-ca provisioner certificate duration."
+  chown 1000:1000 "${ca_config}"
+  chmod 0600 "${ca_config}"
 }
 
 do_ca() {
@@ -92,6 +119,11 @@ do_ca() {
     docker compose up -d
   )
   normalize_ca_password_files
+  configure_ca_service_cert_duration
+  (
+    cd "${WORKDIR}/step-ca"
+    docker compose restart step-ca
+  )
   ufw allow "${CA_PORT}/tcp" || true
 }
 

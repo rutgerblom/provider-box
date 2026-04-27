@@ -262,6 +262,15 @@ validate_var_not_placeholder() {
   [[ "$1" != CHANGE_ME* ]] || fail "Replace placeholder value before continuing"
 }
 
+validate_service_cert_duration() {
+  local value="$1"
+
+  [[ -n "${value}" ]] || fail "SERVICE_CERT_DURATION must not be empty"
+  validate_var_not_placeholder "${value}"
+  [[ "${value}" =~ ^[0-9]+h$ ]] || \
+    fail "SERVICE_CERT_DURATION must use an hour duration such as 8760h"
+}
+
 validate_ca_password_value() {
   local value="$1"
   local normalized="${value,,}"

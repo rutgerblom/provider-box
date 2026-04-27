@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 2026-04-27
+
+### Improvements
+- Add explicit 365-day service certificate lifetime support for step-ca-issued service certificates
+
+### Fixes
+- Fix short-lived step-ca service certificates by configuring and requesting an explicit 365-day certificate duration
+
 ## 2026-04-25
 
 ### Improvements
