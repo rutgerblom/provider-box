@@ -25,10 +25,10 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
-        "^config/provider-box\\.env\\.example$"
+        "/^config/provider-box\\.env\\.example$/"
       ],
       "matchStrings": [
-        "^[A-Z0-9_]+_IMAGE=\"?(?<depName>[^\":\\s]+(?:/[^\":\\s]+)*):(?<currentValue>[^\"\\s]+)\"?$"
+        "(?:^|\\r\\n|\\r|\\n)[A-Z0-9_]+_IMAGE=\"?(?<depName>[^\":\\s]+(?:/[^\":\\s]+)*):(?<currentValue>[^\"\\s]+)\"?"
       ],
       "datasourceTemplate": "docker",
       "versioningTemplate": "docker"
